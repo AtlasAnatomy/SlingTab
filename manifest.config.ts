@@ -14,7 +14,7 @@ export default defineManifest({
   name: "SlingTab",
   version: "0.1.0",
   description:
-    "Draw a circle to open a portal to the page underneath your cursor, then step through it.",
+    "Cast a sling ring, draw a circle, and step through a portal into any link.",
   minimum_chrome_version: "120",
   // `offscreen` powers the webcam trigger: getUserMedia from a content script
   // would prompt per site on the *page's* origin, whereas an offscreen document
