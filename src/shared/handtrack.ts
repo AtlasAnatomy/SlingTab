@@ -145,6 +145,71 @@ export function poseSatisfied(fingers: boolean[], pose: HandPose): boolean {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * MediaPipe's own log lines, kept out of the extension's error list.
+ *
+ * The bundled runtime is a C++ program compiled to WASM, and it kept its glog
+ * chatter: a few lines every time a landmarker is built, and a few more every
+ * time the graph re-initialises behind a lost hand.
+ *
+ *     W0825 08:07:19.622 … gl_context.cc:1119] OpenGL error checking is
+ *     disabled
+ *     W0825 08:07:19.792 … landmark_projection_calculator.cc:81] Using
+ *     NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI.
+ *
+ * Both are warnings about the graph MediaPipe itself ships — the projection one
+ * is emitted from inside `hand_landmarker.task`, which we do not build and
+ * cannot configure — and the tracker works. But Emscripten binds the program's
+ * stderr to `console.error`, and `chrome://extensions` collects every
+ * `console.error` from an extension context into the card's Errors list. So a
+ * healthy load looks like five errors, and a real one is buried among them.
+ *
+ * Emscripten reads `Module.printErr` once, at startup, and keeps it for the
+ * life of the instance; `@mediapipe/tasks-vision` passes `self.Module` straight
+ * through to its module factory. So the global is borrowed for exactly one
+ * construction, while the routing it installs lasts as long as the tracker —
+ * which it must, because the projection warning is emitted per detection and
+ * not once at build.
+ */
+const GLOG_LINE = /^([IWEF])\d{4} \d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+[\w./-]+:\d+\]/;
+
+/**
+ * Demoted, not deleted: an INFO or WARNING from the runtime still reaches the
+ * console, at the level DevTools hides behind Verbose and the extensions page
+ * does not collect. Anything MediaPipe considers an actual error — a delegate
+ * that will not start, a model it cannot parse — is still an error here, which
+ * is the whole reason for not simply muting the stream.
+ */
+export function routeWasmLog(line: string): void {
+  const level = GLOG_LINE.exec(line)?.[1];
+  if (level === "I" || level === "W") console.debug(line);
+  else console.error(line);
+}
+
+/**
+ * Run one MediaPipe construction with its stderr routed through `routeWasmLog`.
+ *
+ * `tasks-vision` hands `self.Module` to the Emscripten factory and then clears
+ * it, so the global is only borrowed for this call; the routing it hands over
+ * lives on inside the instance. The `finally` covers the throw before it gets
+ * that far — a GPU attempt a driver refuses is a normal path here, not an
+ * exceptional one.
+ */
+async function withQuietRuntime<T>(build: () => Promise<T>): Promise<T> {
+  const scope = globalThis as { Module?: unknown };
+  const had = "Module" in scope;
+  const previous = scope.Module;
+  scope.Module = { printErr: routeWasmLog };
+  try {
+    return await build();
+  } finally {
+    if (had) scope.Module = previous;
+    else delete scope.Module;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 export class HandTracker {
   private buffer = new GestureBuffer();
   private lastFire = -Infinity;
@@ -184,16 +249,23 @@ export class HandTracker {
   /** Set to a canvas 2D context to receive the fallback's debug mask. */
   debugCtx: CanvasRenderingContext2D | null = null;
 
-  async load(baseUrl: string): Promise<boolean> {
-    if (this.landmarker) return true;
-    try {
+  /**
+   * One construction attempt, with the runtime's stderr routed to debug.
+   *
+   * The fileset is resolved per attempt rather than hoisted: the CPU retry
+   * only runs once the GPU attempt has thrown, and resolving it again is a
+   * path lookup, not a second download.
+   */
+  private buildLandmarker(
+    baseUrl: string,
+    delegate: "GPU" | "CPU",
+  ): Promise<HandLandmarker> {
+    return withQuietRuntime(async () => {
       const fileset = await FilesetResolver.forVisionTasks(`${baseUrl}mediapipe`);
-      this.landmarker = await HandLandmarker.createFromOptions(fileset, {
+      return HandLandmarker.createFromOptions(fileset, {
         baseOptions: {
           modelAssetPath: `${baseUrl}models/hand_landmarker.task`,
-          // GPU is markedly faster, but an offscreen document is not rendered
-          // and some drivers refuse it there. Fall back rather than fail.
-          delegate: "GPU",
+          delegate,
         },
         numHands: 1,
         runningMode: "VIDEO",
@@ -201,23 +273,21 @@ export class HandTracker {
         minHandPresenceConfidence: HAND_TUNING.minConfidence,
         minTrackingConfidence: HAND_TUNING.minConfidence,
       });
+    });
+  }
+
+  async load(baseUrl: string): Promise<boolean> {
+    if (this.landmarker) return true;
+    try {
+      // GPU is markedly faster, but an offscreen document is not rendered and
+      // some drivers refuse it there. Fall back rather than fail.
+      this.landmarker = await this.buildLandmarker(baseUrl, "GPU");
       this.ready = true;
       this.usingFallback = false;
       return true;
     } catch (gpuErr) {
       try {
-        const fileset = await FilesetResolver.forVisionTasks(`${baseUrl}mediapipe`);
-        this.landmarker = await HandLandmarker.createFromOptions(fileset, {
-          baseOptions: {
-            modelAssetPath: `${baseUrl}models/hand_landmarker.task`,
-            delegate: "CPU",
-          },
-          numHands: 1,
-          runningMode: "VIDEO",
-          minHandDetectionConfidence: HAND_TUNING.minConfidence,
-          minHandPresenceConfidence: HAND_TUNING.minConfidence,
-          minTrackingConfidence: HAND_TUNING.minConfidence,
-        });
+        this.landmarker = await this.buildLandmarker(baseUrl, "CPU");
         this.ready = true;
         this.usingFallback = false;
         return true;

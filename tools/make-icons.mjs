@@ -1,7 +1,7 @@
 /**
  * Generates the extension icons from the source logo.
  *
- *   npm run icons     public/icons/logo.png -> icon-{16,32,48,128}.png
+ *   npm run icons     assets/logo.png -> public/icons/icon-{16,32,48,128}.png
  *
  * This used to render a procedural ring instead. It now downsamples the real
  * logo, because the extension has one — and because a generator that ignores
@@ -12,11 +12,12 @@
  * about a hundred lines and removes a dependency from a project that has none
  * at runtime and almost none at build time.
  *
- * NOTE on the source: the logo as delivered was an ICO file with a .png
- * extension. Chrome will not decode that, which is why the icon was blank in
- * chrome://extensions. `assets/logo.png` is the real 256x256 PNG lifted out of
- * that container; `assets/logo-original.ico` is the file as delivered, kept
- * under its true extension and shipped nowhere.
+ * NOTE on the source: `assets/logo.png` is the master, and it has to be a
+ * real PNG — 8-bit RGBA, non-interlaced. The first logo arrived as an ICO file
+ * with a .png extension, Chrome refused to decode it, and the icon was blank in
+ * chrome://extensions with nothing said about why; `decodePng` checks the
+ * signature and says so now. `assets/logo-original.ico` is that first delivery,
+ * kept under its true extension, superseded, and shipped nowhere.
  */
 import { deflateSync, inflateSync } from "node:zlib";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -36,18 +37,33 @@ const SIZES = [16, 32, 48, 128];
 /**
  * Fraction cropped from each edge before resampling.
  *
- * The logo is a disc that already touches the canvas edge, so there is no
- * transparent margin to trim automatically — but there IS a band of flat dark
- * ground between the canvas edge and the amber ring. Measured on the 256px
- * source, the ring's outer edge sits at x=13, so that band is 13/256 of the
- * width. Cropping it makes the ring 11% larger inside the same icon box, which
- * is the whole of what can be done about "the toolbar icon is too small":
- * Chrome fixes the slot at 16 logical pixels, so the only lever is how much of
- * those pixels the artwork occupies.
+ * The logo is a rounded square whose ground reaches the canvas edge, so there
+ * is no transparent margin to trim automatically — but there IS a band of flat
+ * black between that edge and the amber ring. Measured on the 1254px master,
+ * the ring's outer edge sits at x=51 on the centre row, so the band is 51/1254
+ * of the width. Cropping it makes the ring 9% larger inside the same icon box,
+ * which is the whole of what can be done about "the toolbar icon is too
+ * small": Chrome fixes the slot at 16 logical pixels, so the only lever is how
+ * much of those pixels the artwork occupies.
  *
- * Set to 0 if the logo is ever replaced with one that is already tight.
+ * The cost is the corner. The master is a rounded square with a 91px radius —
+ * 7.3% of the side — and 51px in from the edge is already inside that arc, so
+ * the crop squares the corners off. At 16px the rounding was one soft pixel and
+ * is not missed; at 128 it is visible, and it is the price of a ring that
+ * reaches the edge of the toolbar slot. `TRIM = 0` buys the corners back and
+ * gives up the 9%.
+ *
+ * It also lands well: 1254 - 2*51 = 1152, which is 72*16, 36*32, 24*48 and
+ * 9*128. Every output pixel at every size is then the average of one whole
+ * block of source pixels, with no bucket a row wider than its neighbour —
+ * worth more at 16px than anywhere else, where one uneven bucket is a visibly
+ * wrong pixel on a ring two pixels thick.
+ *
+ * MEASURE IT AGAIN if the logo is replaced: this number is a property of one
+ * particular file, and a stale one either leaves the band in or eats the ring.
+ * Set it to 0 for artwork that is already tight to its edges.
  */
-const TRIM = 13 / 256;
+const TRIM = 51 / 1254;
 
 // ------------------------------------------------------------ PNG encoding
 

@@ -73,10 +73,17 @@
         padding: 11px 18px;
       }
 
-      .note {
+      /*
+       * The status line, in both of its registers. Until the button is pressed
+       * it is information — what Chrome is about to do — so it wears the shared
+       * callout with the alert mark. From the first click it reports outcomes
+       * instead, and setStatus() swaps it to .note, where the coloured edge is
+       * the message. Same box either way, so the swap does not move the page.
+       */
+      #status {
         margin-top: var(--s-sm);
-        padding: 12px 14px;
-        font-size: 13px;
+        padding: 14px var(--s-sm);
+        font-size: 12.5px;
       }
 
       .stage {
@@ -173,7 +180,9 @@
           <button id="done" class="hidden">Close this tab</button>
         </div>
 
-        <div id="status" class="note warn">Chrome will ask for permission.</div>
+        <div id="status" class="callout alert">
+          <div>Chrome will ask for permission.</div>
+        </div>
 
         <div id="stage" class="stage hidden">
           <video id="preview" autoplay muted playsinline></video>

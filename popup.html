@@ -69,13 +69,27 @@
         background: var(--well);
       }
 
+      /*
+       * The same control as the settings page, at popup scale.
+       *
+       * The input used to be hidden and the selected row marked with a lit 2px
+       * edge down its left side. It looked like the ring, which is why it was
+       * there — but nothing else in a browser says "this one is chosen" with a
+       * bar, so it had to be learned, and it left the same setting wearing two
+       * different controls on the two surfaces. A radio is the one shape that
+       * needs no explaining, and the stack it sits in is still the instrument
+       * block: hairline dividers, no gap, no cards.
+       *
+       * What the popup keeps that the document does not: the selected row is
+       * tinted, its keycap warms to ember and its title comes up to full white.
+       * The radio says which one is chosen; those say the thing is live.
+       */
       .mode {
-        position: relative;
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 3px 10px;
         align-items: baseline;
-        padding: 11px 13px 11px 15px;
+        padding: 11px 13px;
         cursor: pointer;
         transition: background 160ms linear;
       }
@@ -85,34 +99,27 @@
       .mode:hover {
         background: var(--raised);
       }
-      .mode input {
-        position: absolute;
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-
-      /* The lit edge: a selected row marked the way the ring marks a stroke. */
-      .mode::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: var(--ember);
-        box-shadow: 0 0 12px oklch(74.8% 0.176 55.4 / 0.7);
-        transform: scaleY(0);
-        transition: transform 200ms var(--ease);
-      }
-      .mode.on::before {
-        transform: scaleY(1);
-      }
       .mode.on {
         background: oklch(22% 0.016 60);
       }
 
+      /* 3px is what centres a 15px control on the 21px title line. */
+      .mode input {
+        grid-row: 1;
+        grid-column: 1;
+        align-self: start;
+        margin: 3px 0 0;
+        width: 15px;
+        height: 15px;
+        accent-color: var(--ember);
+      }
+      .mode input:focus-visible {
+        outline: 2px solid var(--ember);
+        outline-offset: 2px;
+      }
+
       .mode b {
+        grid-column: 2;
         font-weight: 550;
         font-size: 13.5px;
         color: var(--mute);
@@ -125,7 +132,7 @@
       /* What you physically do. Structure carrying fact, not decoration. */
       .mode .code {
         grid-row: 1;
-        grid-column: 2;
+        grid-column: 3;
         font: 500 10px/1 var(--mono);
         letter-spacing: 0.1em;
         color: var(--dim);
@@ -136,13 +143,9 @@
       }
 
       .mode small {
-        grid-column: 1 / -1;
+        grid-column: 2 / -1;
         color: var(--mute);
         font-size: 11.5px;
-      }
-      .mode input:focus-visible ~ b {
-        outline: 2px solid var(--ember);
-        outline-offset: 3px;
       }
 
       /* ---------------------------------------------------------- feedback */

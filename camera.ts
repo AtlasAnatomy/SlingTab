@@ -31,6 +31,14 @@ let stream: MediaStream | null = null;
 let tracker: VideoTracker | null = null;
 let firedTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * Report an outcome on the status line.
+ *
+ * The line starts life as a callout — information, no colour, alert mark —
+ * because before the first click nothing has happened yet. Assigning the class
+ * outright is what moves it into the other register: from here on it is a
+ * status, and the coloured edge is the message.
+ */
 function setStatus(kind: "ok" | "warn", text: string): void {
   status.className = `note ${kind}`;
   status.textContent = text;

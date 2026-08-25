@@ -233,27 +233,35 @@ body.live .power {
 }
 
 /*
- * The information mark, drawn rather than fetched.
+ * The mark, drawn rather than fetched.
  *
- * A single glyph does not justify an icon library in a project with no runtime
- * dependencies, and a hand-rolled SVG path is worse than the letter itself:
- * this is literally a lowercase i in a ring, so that is what it is. Text also
- * inherits the face and the optical weight of everything around it, which a
- * traced path never does.
+ * One glyph does not justify an icon library in a project with no runtime
+ * dependencies, so both icons are inline SVG in a mask: the box is painted in
+ * `currentColor` and the drawing decides what survives, which is what keeps
+ * the ring the same value as the sentence next to it in every state.
+ *
+ * They were a typed letter before. A lowercase `i` set in the body face is a
+ * letter in a circle, not an icon — the ring is a border radius rather than a
+ * stroke, the counter never centres, and the italic leans out of its own well.
+ * Two hairline paths at the weight of everything else on the page read as an
+ * instrument marking; a character does not.
+ *
+ * `.callout` is information and `.callout.alert` is a heads-up, and the whole
+ * difference between them is the silhouette. Neither takes a colour: colour is
+ * reserved for `.note`, where it reports something that just happened.
  */
 .callout::before {
-  content: "i";
-  display: grid;
-  place-items: center;
+  content: "";
   width: 18px;
   height: 18px;
   margin-top: 1px;
-  border: 1px solid var(--dim);
-  border-radius: 50%;
-  font: 600 11px/1 var(--sans);
-  font-style: italic;
-  color: var(--mute);
-  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: var(--callout-icon) center / contain no-repeat;
+  mask: var(--callout-icon) center / contain no-repeat;
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9.25'/%3E%3Cpath d='M12 11.2v5'/%3E%3Ccircle cx='12' cy='7.7' r='1.05' fill='%23000' stroke='none'/%3E%3C/svg%3E");
+}
+.callout.alert::before {
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.6 3.9 1.9 18.9a1.6 1.6 0 0 0 1.4 2.4h17.4a1.6 1.6 0 0 0 1.4-2.4L13.4 3.9a1.6 1.6 0 0 0-2.8 0z'/%3E%3Cpath d='M12 9.7v4.1'/%3E%3Ccircle cx='12' cy='17.5' r='1.05' fill='%23000' stroke='none'/%3E%3C/svg%3E");
 }
 
 /* ---------------------------------------------------------------- buttons */
