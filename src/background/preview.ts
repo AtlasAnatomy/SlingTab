@@ -226,10 +226,30 @@ export function normaliseColor(input: string | null): string | null {
 }
 
 /**
+ * True when `url` is same-origin with `origin`. A missing or unparseable origin
+ * is "no", so every caller degrades to the cross-origin answer it used to give.
+ */
+export function isSameOrigin(url: string, origin: string | null | undefined): boolean {
+  if (!origin) return false;
+  try {
+    return new URL(url).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * CSP `frame-ancestors` decides framability regardless of X-Frame-Options.
  * Anything narrower than a wildcard excludes a chrome-extension initiator.
+ *
+ * `sameOrigin` says the page doing the framing is the destination's own origin,
+ * which is the one case `'self'` exists to allow. Without it this answered for
+ * the cross-site portal only — correct there, and wrong for the commonest link
+ * of all: a sibling page on the site you are already reading. That wrong answer
+ * is what sent same-origin links down mode A, stripping a site's CSP to build a
+ * frame the site was already willing to grant.
  */
-export function cspAllowsFraming(csp: string | null): boolean {
+export function cspAllowsFraming(csp: string | null, sameOrigin = false): boolean {
   if (!csp) return true;
   for (const directive of csp.split(";")) {
     const parts = directive.trim().split(/\s+/);
@@ -237,22 +257,40 @@ export function cspAllowsFraming(csp: string | null): boolean {
     if (name !== "frame-ancestors") continue;
     const values = parts.slice(1).map((v) => v.toLowerCase());
     if (values.length === 0) return false;
-    return values.includes("*");
+    if (values.includes("*")) return true;
+    // Host expressions are left as a "no". Matching a CSP source list properly
+    // — schemes, ports, wildcards in host position — is not something to
+    // reimplement from memory when guessing wrong means framing a site that
+    // said no.
+    return sameOrigin && values.includes("'self'");
   }
   return true;
 }
 
-export function xfoAllowsFraming(xfo: string | null): boolean {
+export function xfoAllowsFraming(xfo: string | null, sameOrigin = false): boolean {
   if (!xfo) return true;
   const v = xfo.trim().toLowerCase();
-  return !(v.includes("deny") || v.includes("sameorigin") || v.includes("allow-from"));
+  if (v.includes("deny")) return false;
+  // The only value whose answer depends on who is asking.
+  if (v.includes("sameorigin")) return sameOrigin;
+  // Obsolete and unsupported by Chrome, which treats it as no policy at all —
+  // but a site that sent it meant to restrict, so it is read as a refusal.
+  if (v.includes("allow-from")) return false;
+  return true;
 }
 
 // ------------------------------------------------------------- network layer
 
+/**
+ * `pageOrigin` is the origin of the tab the gesture was made on, and it only
+ * affects `nativelyFramable`: it is what lets `SAMEORIGIN` and
+ * `frame-ancestors 'self'` read as a yes when they actually are one. Omitted,
+ * every answer is the cross-origin answer.
+ */
 export async function inspectTarget(
   targetUrl: string,
   budgetMs: number,
+  pageOrigin?: string | null,
 ): Promise<TargetInfo | null> {
   const { signal, cancel } = deadline(budgetMs);
   try {
@@ -268,17 +306,22 @@ export async function inspectTarget(
 
     const bytes = await readCapped(res, HTML_BYTE_LIMIT);
     const html = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    const meta = extractPreview(html, res.url || targetUrl);
+    const finalUrl = res.url || targetUrl;
+    const meta = extractPreview(html, finalUrl);
+    // The FINAL url, after redirects: a link that leaves the origin on the way
+    // is not same-origin, whatever the href said.
+    const same = isSameOrigin(finalUrl, pageOrigin);
 
     return {
-      finalUrl: res.url || targetUrl,
+      finalUrl,
       // The DNR rule removes exactly the two headers checked below, so a
       // reachable page is a framable one. It is still only a strong guess: a
       // page's own frame-busting script is not a header, and a site served from
       // its own service worker never hits the network for the rule to apply —
       // which is why the 400ms iframe load timeout in departure.ts is mandatory.
       framable: res.ok,
-      nativelyFramable: res.ok && xfoAllowsFraming(xfo) && cspAllowsFraming(csp),
+      nativelyFramable:
+        res.ok && xfoAllowsFraming(xfo, same) && cspAllowsFraming(csp, same),
       ...meta,
     };
   } catch {

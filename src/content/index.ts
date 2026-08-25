@@ -50,6 +50,24 @@ function viewport(): { width: number; height: number } {
   return { width: window.innerWidth, height: window.innerHeight };
 }
 
+/**
+ * True when `href` addresses the document we are already in.
+ *
+ * Not just the identical URL: anything differing only in the fragment is a
+ * SAME-DOCUMENT navigation. Nothing unloads, so the portal would dive into a
+ * page that never arrives and hold the last frame of the dive over the tab —
+ * see T_WAIT_MAX in departure.ts, which is the other half of this. Every table
+ * of contents and every anchored heading on the web is one of these links, so
+ * it is not an edge case: it is the commonest link on a documentation page.
+ *
+ * The portal has nothing to show for one either. There is no destination to
+ * frame and no preview to build — it is this page, scrolled.
+ */
+function isSameDocument(href: string): boolean {
+  const bare = (u: string): string => u.split("#")[0] ?? u;
+  return bare(href) === bare(location.href);
+}
+
 /** §6 step 1: nearest ancestor <a href> with an http(s) href under the centre. */
 function linkAt(x: number, y: number): string | null {
   try {
@@ -58,7 +76,7 @@ function linkAt(x: number, y: number): string | null {
       const anchor = (el as Element).closest?.("a[href]") as HTMLAnchorElement | null;
       if (!anchor) continue;
       const href = anchor.href;
-      if (/^https?:\/\//i.test(href) && href !== location.href) return href;
+      if (/^https?:\/\//i.test(href) && !isSameDocument(href)) return href;
     }
   } catch {
     /* elementsFromPoint can throw on detached documents */

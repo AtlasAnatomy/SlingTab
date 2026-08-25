@@ -17,9 +17,14 @@ export interface Settings {
   enabled: boolean;
   trigger: TriggerMode;
   /**
-   * Mode A: frame the destination even when it refuses, by stripping
-   * X-Frame-Options and CSP for that one sub-frame request, in that one tab,
-   * for the second or two the portal is open.
+   * Mode A: frame the destination even when it refuses, by stripping framing
+   * headers for that one sub-frame request, in that one tab, for the second or
+   * two the portal is open.
+   *
+   * How much is stripped depends on where the destination lives. Cross-origin
+   * takes X-Frame-Options and CSP; same-origin takes X-Frame-Options only, so
+   * a frame that does carry the user's cookies keeps its `script-src`. See
+   * FrameRuleScope in background/dnr.ts.
    *
    * On by default. It is what makes the disc show the real page for the sites
    * people actually visit — almost all of which refuse framing, so `livePreview`

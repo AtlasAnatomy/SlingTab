@@ -8,6 +8,16 @@ export type Msg =
   | {
       type: "PORTAL_DEPART";
       targetUrl: string;
+      /**
+       * The origin of the page the gesture was made on.
+       *
+       * The worker cannot read it: there is no `tabs` permission, so `sender.tab`
+       * carries an id and nothing else. It is needed for one decision — whether
+       * the destination is same-origin with the page we are standing on — and
+       * that decision is what keeps mode A from stripping a site's own CSP for a
+       * frame that site already permits. See handleDepart.
+       */
+      pageOrigin: string | null;
       centerXFrac: number;
       centerYFrac: number;
       radiusFrac: number;

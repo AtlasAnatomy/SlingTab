@@ -45,6 +45,22 @@ export const TRAIL_RATE = 1200;
  */
 export const SPARK_MEAN_LIFE = 0.72;
 
+/**
+ * Silence after which the preview takes itself down.
+ *
+ * Nothing else would. The preview is destroyed by `HAND_ARMED: false`, and the
+ * offscreen tracker can stop without ever sending one — a worker killed
+ * mid-relay, a camera permission revoked from the omnibox, the document closed
+ * because the trigger changed in another window. The rAF loop and the WebGL
+ * context it owns would then run on the user's page until they navigated away.
+ *
+ * Well clear of the ~45 ms cadence of HAND_PREVIEW (22 Hz) and of any plausible
+ * stall in the offscreen -> worker -> tab relay, so a live hand never trips it.
+ * By this point `presence` has been at zero for well over a second and there
+ * has been nothing on screen to remove for just as long.
+ */
+const PREVIEW_SILENCE_MS = 2000;
+
 export class HandPreview {
   private overlay: Overlay | null;
   private sparks = new SparkSystem();
@@ -170,6 +186,13 @@ export class HandPreview {
     const stale = now - this.lastUpdate > 220;
     this.presence += ((stale ? 0 : 1) - this.presence) * Math.min(1, dt * 9);
     if (this.presence < 0.01 && stale) {
+      // `t0`, not just `lastUpdate`: a preview built by HAND_ARMED that never
+      // receives a single frame has `lastUpdate` at 0 for ever, and measuring
+      // from the epoch would destroy it before its first update could land.
+      if (now - Math.max(this.lastUpdate, this.t0) > PREVIEW_SILENCE_MS) {
+        this.destroy();
+        return;
+      }
       this.sparks.update(dt);
       this.overlay.render(this.blankState(now), this.sparks);
       return;

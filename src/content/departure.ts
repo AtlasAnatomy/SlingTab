@@ -23,6 +23,30 @@ const T_OPEN = 180;
  * of whoever opened it by an unbounded amount.
  */
 const T_HOLD_MAX = 5 * 60_000;
+/**
+ * How long WAITING may wait.
+ *
+ * WAITING is the frame after the dive, held until the destination document
+ * replaces this one. Its exit condition was the navigation itself — `pagehide`
+ * tearing the portal down with the page — and that is not an exit condition at
+ * all for the navigations that do not unload anything:
+ *
+ *   - a link to a fragment of the page we are already on (every table of
+ *     contents, every anchored heading), which is a same-document navigation
+ *   - a link the server answers with `Content-Disposition: attachment`, which
+ *     starts a download and leaves the document exactly where it was
+ *   - a 204
+ *
+ * In all three the portal sat at the dive's final geometry — a full-screen,
+ * fully opaque disc — for ever. `beginDissipate` is guarded on `committed`
+ * precisely so a stray key or click cannot cancel a navigation in flight, so
+ * nothing the user could do would take it down short of reloading the tab.
+ *
+ * Long enough that a genuinely slow commit is never interrupted (a cold
+ * cross-origin destination on a bad connection is seconds, not this), short
+ * enough that the page always comes back.
+ */
+const T_WAIT_MAX = 6000;
 /** Commit = lens phase + dive phase. */
 const T_LENS = 260;
 const T_DIVE = 320;
@@ -95,6 +119,20 @@ interface Chip {
   url: string;
   x: number;
   y: number;
+}
+
+/**
+ * `location.origin` is "null" (the string) on an opaque origin, and reading it
+ * can throw on a detached document. Either way the worker should hear nothing
+ * rather than a value it would compare against.
+ */
+function pageOrigin(): string | null {
+  try {
+    const o = location.origin;
+    return o && o !== "null" ? o : null;
+  } catch {
+    return null;
+  }
 }
 
 
@@ -263,6 +301,10 @@ export class Departure {
     const res = await send<DepartResponse>({
       type: "PORTAL_DEPART",
       targetUrl: url,
+      // The worker has no `tabs` permission and so cannot read where we are.
+      // It needs this to tell a same-origin destination from a cross-site one,
+      // which is what decides whether any header is stripped at all.
+      pageOrigin: pageOrigin(),
       centerXFrac: this.cx / window.innerWidth,
       centerYFrac: this.cy / window.innerHeight,
       radiusFrac: this.radius / window.innerWidth,
@@ -588,8 +630,24 @@ export class Departure {
   /**
    * Close it from outside — the content script calls this when a new circle is
    * drawn, so the second gesture replaces the first rather than being ignored.
+   *
+   * A committed portal cannot dissipate: `beginDissipate` refuses, by design,
+   * so a stray click cannot cancel a navigation already on its way. That guard
+   * used to make `dismiss()` a silent no-op on exactly the portal that most
+   * needed closing — one stuck in WAITING behind a navigation that never
+   * unloads. The caller has already dropped its reference by the time this
+   * returns, so a portal that will not dissipate has to be torn down instead or
+   * it keeps its rAF loop, its WebGL context and its full-screen overlay for
+   * the life of the document, with the next gesture stacking another on top.
+   *
+   * Tearing down does not cancel the navigation: `navigate()` runs from its own
+   * timers and checks `navigated`, not `finished`.
    */
   dismiss(): void {
+    if (this.committed) {
+      this.teardown();
+      return;
+    }
     this.beginDissipate();
   }
 
@@ -872,6 +930,15 @@ export class Departure {
          * colour, which is exactly the frame the arrival animation opens from,
          * and sparks still in flight from the dive finish falling and stop.
          */
+        // The navigation is not coming. Teardown rather than dissipate: the
+        // dissipate animation shrinks from `this.radius`, the gesture's own
+        // radius, and starting it from a disc that currently spans the viewport
+        // would pop before it shrank. On this path the user wants their page
+        // back, and one frame is the right amount of ceremony.
+        if (inPhase > T_WAIT_MAX) {
+          this.teardown();
+          return;
+        }
         open = 1;
         fade = 1;
         energy = 0;

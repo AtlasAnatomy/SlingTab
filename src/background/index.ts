@@ -1,6 +1,17 @@
-import { armFrameRule, releaseFrameRule, sweepAllRules } from "./dnr";
+import {
+  armFrameRule,
+  releaseFrameRule,
+  sweepAllRules,
+  type FrameRuleScope,
+} from "./dnr";
 import { sendViewport, syncHandTracking } from "./offscreen";
-import { buildVision, faviconDataUrl, inspectTarget, type TargetInfo } from "./preview";
+import {
+  buildVision,
+  faviconDataUrl,
+  inspectTarget,
+  isSameOrigin,
+  type TargetInfo,
+} from "./preview";
 import { MAX_QUICK_LINKS, loadSettings } from "../shared/settings";
 import {
   EMPTY_VISION,
@@ -78,6 +89,28 @@ async function handleDepart(
   if (!isHttpUrl(msg.targetUrl)) return fallback;
 
   const settings = await loadSettings();
+  const pageOrigin = typeof msg.pageOrigin === "string" ? msg.pageOrigin : null;
+  /**
+   * How much of the destination's framing policy mode A is allowed to remove.
+   *
+   * A destination on the origin we are already standing on is framed in a
+   * same-SITE iframe, and `SameSite=Lax` does NOT withhold cookies from one —
+   * so the logged-out preview that makes stripping tolerable cross-site is not
+   * what happens there. Taking the whole `content-security-policy` header off
+   * an authenticated document takes `script-src` with it.
+   *
+   * The answer is a narrower rule, NOT a refusal to arm one. Declining outright
+   * was tried and it cost the live preview on a large share of real links: it
+   * pushed same-origin targets onto the probe, and the probe says no whenever
+   * the destination does not answer a credential-less GET with a 200 inside the
+   * budget — a page behind a login, a bot-protection interstitial, a slow host.
+   * Mode A never looked at the response at all, which is exactly why it worked.
+   *
+   * "xfo" keeps that: armed unconditionally, no probe, but it removes only
+   * X-Frame-Options and leaves the CSP — and `script-src` — untouched. See
+   * FrameRuleScope in dnr.ts for why that is enough to frame nearly everything.
+   */
+  const scope: FrameRuleScope = isSameOrigin(msg.targetUrl, pageOrigin) ? "xfo" : "all";
 
   /**
    * Probe, build the card, and push it — without anyone waiting on it.
@@ -89,7 +122,7 @@ async function handleDepart(
    */
   const probeAndPush = (probed?: TargetInfo | null): void => {
     const info = probed !== undefined ? Promise.resolve(probed)
-      : inspectTarget(msg.targetUrl, VISION_BUDGET_MS);
+      : inspectTarget(msg.targetUrl, VISION_BUDGET_MS, pageOrigin);
     void info
       .then((i) => buildVision(msg.targetUrl, i, VISION_BUDGET_MS))
       .then((v) => {
@@ -110,15 +143,18 @@ async function handleDepart(
    * covered and falls back to the card.
    */
   if (settings.iframeMode) {
-    if (await armFrameRule(tabId, msg.targetUrl)) {
+    if (await armFrameRule(tabId, msg.targetUrl, scope)) {
       probeAndPush();
       return { mode: "iframe" };
     }
   }
 
-  // Mode A is off, so whether to frame at all depends on the site's own headers
-  // and this is the one path that genuinely has to wait for an answer.
-  const info = await inspectTarget(msg.targetUrl, PROBE_BUDGET_MS);
+  // Mode A is off, or the rule would not install, so whether to frame at all
+  // depends on the site's own headers and this is the one path that genuinely
+  // has to wait for an answer. `pageOrigin` matters here too: it is what lets
+  // `SAMEORIGIN` and `frame-ancestors 'self'` read as the yes they are when the
+  // destination is our own origin.
+  const info = await inspectTarget(msg.targetUrl, PROBE_BUDGET_MS, pageOrigin);
 
   if (info?.nativelyFramable && settings.livePreview) {
     probeAndPush(info);

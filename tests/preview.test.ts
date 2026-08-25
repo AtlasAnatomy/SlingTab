@@ -4,6 +4,7 @@ import {
   cspAllowsFraming,
   extractPreview,
   inspectTarget,
+  isSameOrigin,
   normaliseColor,
   xfoAllowsFraming,
 } from "../src/background/preview";
@@ -165,6 +166,50 @@ describe("framability probe", () => {
     // An empty frame-ancestors list allows nothing.
     expect(cspAllowsFraming("script-src 'self'; frame-ancestors")).toBe(false);
   });
+
+  /**
+   * `SAMEORIGIN` and `frame-ancestors 'self'` are the two values whose answer
+   * depends on who is asking, and reading them as a flat "no" is what used to
+   * send every same-origin link down mode A — stripping a site's own CSP to
+   * build a frame that site was already willing to grant.
+   */
+  it("reads 'self' as a yes only for a same-origin framer", () => {
+    expect(xfoAllowsFraming("SAMEORIGIN", true)).toBe(true);
+    expect(xfoAllowsFraming("SAMEORIGIN", false)).toBe(false);
+    expect(cspAllowsFraming("frame-ancestors 'self'", true)).toBe(true);
+    expect(cspAllowsFraming("frame-ancestors 'self'", false)).toBe(false);
+    expect(cspAllowsFraming("default-src 'self'; frame-ancestors 'self' https://a.com", true))
+      .toBe(true);
+  });
+
+  it("keeps refusing outright, same origin or not", () => {
+    expect(xfoAllowsFraming("DENY", true)).toBe(false);
+    expect(xfoAllowsFraming("ALLOW-FROM https://a.com", true)).toBe(false);
+    expect(cspAllowsFraming("frame-ancestors 'none'", true)).toBe(false);
+    expect(cspAllowsFraming("script-src 'self'; frame-ancestors", true)).toBe(false);
+    // A host expression stays a "no": matching a CSP source list is not
+    // reimplemented here, and guessing wrong means framing a site that said no.
+    expect(cspAllowsFraming("frame-ancestors https://a.com", true)).toBe(false);
+  });
+});
+
+describe("isSameOrigin", () => {
+  it("compares origins, not urls", () => {
+    expect(isSameOrigin("https://a.com/x?q=1#f", "https://a.com")).toBe(true);
+    expect(isSameOrigin("https://a.com/x", "https://b.com")).toBe(false);
+    // Scheme and port are part of an origin.
+    expect(isSameOrigin("http://a.com/x", "https://a.com")).toBe(false);
+    expect(isSameOrigin("https://a.com:8443/x", "https://a.com")).toBe(false);
+  });
+
+  it("answers no for anything it cannot compare", () => {
+    // The worker must degrade to the cross-origin answer — the one that strips
+    // nothing on its own — rather than guess.
+    expect(isSameOrigin("https://a.com/x", null)).toBe(false);
+    expect(isSameOrigin("https://a.com/x", undefined)).toBe(false);
+    expect(isSameOrigin("https://a.com/x", "")).toBe(false);
+    expect(isSameOrigin("not a url", "https://a.com")).toBe(false);
+  });
 });
 
 describe("inspectTarget framability", () => {
@@ -175,12 +220,12 @@ describe("inspectTarget framability", () => {
    * one branch earlier. Stripping is the entire point of mode A, so the two must
    * disagree precisely when a site refuses.
    */
-  const probe = async (headers: Record<string, string>) => {
+  const probe = async (headers: Record<string, string>, pageOrigin?: string) => {
     const original = globalThis.fetch;
     globalThis.fetch = (async () =>
       new Response("<html><title>T</title></html>", { headers })) as typeof fetch;
     try {
-      return await inspectTarget("https://example.com/", 1000);
+      return await inspectTarget("https://example.com/", 1000, pageOrigin);
     } finally {
       globalThis.fetch = original;
     }
@@ -209,6 +254,32 @@ describe("inspectTarget framability", () => {
   it("still carries the extracted metadata alongside", async () => {
     const info = await probe({ "x-frame-options": "DENY" });
     expect(info?.title).toBe("T");
+  });
+
+  /**
+   * The whole point of threading the page's origin through: a link to a sibling
+   * page on the site you are already reading needs no header stripped, so
+   * handleDepart can decline mode A for it and still show the live page.
+   */
+  it("reports a same-origin destination as natively framable", async () => {
+    const cases: Record<string, string>[] = [
+      { "x-frame-options": "SAMEORIGIN" },
+      { "content-security-policy": "frame-ancestors 'self'" },
+    ];
+    for (const headers of cases) {
+      const info = await probe(headers, "https://example.com");
+      expect(info?.nativelyFramable, JSON.stringify(headers)).toBe(true);
+    }
+  });
+
+  it("does not soften a same-origin destination that refuses outright", async () => {
+    const info = await probe({ "x-frame-options": "DENY" }, "https://example.com");
+    expect(info?.nativelyFramable).toBe(false);
+  });
+
+  it("is unchanged when no page origin is supplied", async () => {
+    const info = await probe({ "x-frame-options": "SAMEORIGIN" });
+    expect(info?.nativelyFramable).toBe(false);
   });
 });
 

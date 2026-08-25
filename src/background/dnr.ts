@@ -1,6 +1,9 @@
 /**
  * Session-scoped header rules for mode A, with guaranteed teardown.
  *
+ * How much each rule removes depends on whether the destination is cross-origin
+ * or same-origin with the page the gesture was made on — see FrameRuleScope.
+ *
  * Rules:
  *  - `updateSessionRules`, NEVER `updateDynamicRules`. Dynamic rules persist
  *    across browser restarts; a stale header-stripping rule that outlives the
@@ -14,6 +17,31 @@
 const RULE_ID_MIN = 9000;
 const RULE_ID_MAX = 9899;
 const WATCHDOG_MS = 5000;
+
+/**
+ * How much of the destination's framing policy the rule removes.
+ *
+ * "all"  X-Frame-Options AND Content-Security-Policy, for a CROSS-ORIGIN
+ *        destination. `frame-ancestors` lives in the CSP and DNR can drop a
+ *        header but not edit one, so refusing sites cannot be framed without
+ *        taking the whole header — `script-src` included. What makes that
+ *        tolerable is the frame being cross-site: `SameSite=Lax` withholds the
+ *        session cookies, so the preview is of a logged-out page.
+ *
+ * "xfo"  X-Frame-Options ONLY, for a SAME-ORIGIN destination — where that
+ *        argument does not hold, because a same-site frame does carry the
+ *        user's cookies. Removing the CSP there would strip `script-src` from
+ *        an authenticated document, so it is left alone.
+ *
+ *        Almost nothing is given up. The values that actually block
+ *        same-origin framing are `X-Frame-Options: DENY` and
+ *        `frame-ancestors 'none'`; `SAMEORIGIN` and `frame-ancestors 'self'`
+ *        — which is nearly every site that sets anything — already permit it,
+ *        and need no rule at all. So dropping XFO covers DENY and the CSP
+ *        never has to be touched. A page that really does send
+ *        `frame-ancestors 'none'` does not frame, and falls back to the card.
+ */
+export type FrameRuleScope = "all" | "xfo";
 
 interface ActiveRule {
   id: number;
@@ -37,11 +65,16 @@ async function applyRules(
 }
 
 /**
- * Strip X-Frame-Options / CSP from sub-frame responses for `targetUrl`, in this
- * tab only. Returns false if the rule could not be installed — the caller must
- * then fall back to mode C rather than mounting an iframe that will be blocked.
+ * Strip framing headers from sub-frame responses for `targetUrl`, in this tab
+ * only. `scope` decides how much comes off; see FrameRuleScope. Returns false
+ * if the rule could not be installed — the caller must then fall back to mode C
+ * rather than mounting an iframe that will be blocked.
  */
-export async function armFrameRule(tabId: number, targetUrl: string): Promise<boolean> {
+export async function armFrameRule(
+  tabId: number,
+  targetUrl: string,
+  scope: FrameRuleScope = "all",
+): Promise<boolean> {
   await releaseFrameRule(tabId);
 
   let host: string;
@@ -52,6 +85,19 @@ export async function armFrameRule(tabId: number, targetUrl: string): Promise<bo
   }
   if (!host) return false;
 
+  const remove = (header: string) => ({
+    header,
+    operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE,
+  });
+  const responseHeaders =
+    scope === "xfo"
+      ? [remove("x-frame-options")]
+      : [
+          remove("x-frame-options"),
+          remove("content-security-policy"),
+          remove("content-security-policy-report-only"),
+        ];
+
   const id = allocId();
   try {
     await applyRules(
@@ -61,20 +107,7 @@ export async function armFrameRule(tabId: number, targetUrl: string): Promise<bo
           priority: 1,
           action: {
             type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
-            responseHeaders: [
-              {
-                header: "x-frame-options",
-                operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE,
-              },
-              {
-                header: "content-security-policy",
-                operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE,
-              },
-              {
-                header: "content-security-policy-report-only",
-                operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE,
-              },
-            ],
+            responseHeaders,
           },
           condition: {
             urlFilter: `||${host}^`,

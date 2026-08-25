@@ -8,7 +8,7 @@
 
 ### Sling through the web.
 
-**Draw a circle around a link — with the mouse, or with your bare hand in the air — and the page tears open inside the disc.**
+**Draw a circle around a link, with the mouse or with your bare hand in the air, and a portal opens where you drew it.**
 
 [![Tests][tests-shield]][tests-url]
 [![TypeScript][ts-shield]][ts-url]
@@ -36,25 +36,23 @@
 
 ## About The Project
 
-You are reading an article. A link catches your eye. You do not click it — you **circle it**.
+You are reading an article. A link catches your eye. Instead of clicking it, you circle it.
 
-A rim of embers ignites along the exact path you traced. The page ruptures inside the ring, and through the hole the destination is *already there*, live, while the surrounding page bends into it like light around a mass. Then the well deepens, the hole swallows the viewport, and you are through. No white flash. No blank tab. No seam.
+A rim of embers lights along the path you traced, and the page opens inside the ring. The destination is already showing through the portal, live, while the page around it bends inward like light around a mass. The well deepens, the portal grows past the corners of the screen, and the real navigation completes underneath it. You never see a blank tab.
 
-That is the entire product. Everything below is what it takes to make it feel that way.
+**SlingTab is a Chrome MV3 extension built with TypeScript, WebGL2, and a MediaPipe hand-tracking model that runs locally.** It renders a gravitational lens over a captured frame of the page you are standing on, draws the destination inside the portal, and hands over to the browser's own navigation at the moment the two look the same.
 
-**SlingTab is a Chrome MV3 extension built with TypeScript, WebGL2, and a locally bundled MediaPipe hand-tracking model.** It composites a real-time gravitational-lens effect over a captured frame of the page you are on, renders the destination inside the puncture, and hands the viewport over to the real navigation at the precise moment the two are visually identical.
+### Key features
 
-### Key Features
-
-|   | |
+| Feature | What it does |
 |---|---|
 | **Mouse *and* hand** | Right-button drag, an Alt-held trackpad stroke, or two raised fingers in front of your webcam. All three feed the **same pure recogniser**. |
-| **A real gravitational lens** | Four WebGL2 passes — lens, vision, ring, sparks — over a `captureVisibleTab` snapshot. Graceful Canvas2D fallback when shaders will not compile. |
-| **The destination, live** | The disc frames the real page where framing is allowed, and can strip `X-Frame-Options` for one sub-frame request in one tab. Otherwise it composes a 512×512 card from favicon, hostname, title and theme colour. |
-| **12 000 instanced sparks** | Ribbons along an analytically reconstructed parabolic path — `p(-τ) = p − v·τ + ½gτ²` — so there is no per-particle history to store. 576k verts per frame. |
+| **A real gravitational lens** | Four WebGL2 passes (lens, vision, ring, sparks) over a `captureVisibleTab` snapshot, with a Canvas2D fallback for when shaders will not compile. |
+| **The destination, live** | The portal frames the real page where framing is allowed, and can strip `X-Frame-Options` for a single sub-frame request in a single tab. Where that fails it composes a 512×512 card from the favicon, hostname, title and theme colour. |
+| **12 000 instanced sparks** | Ribbons along an analytically reconstructed parabolic path, `p(-τ) = p − v·τ + ½gτ²`, so no per-particle history is ever stored. 576k verts per frame. |
 | **Nothing leaves the machine** | Webcam frames are read and discarded. MediaPipe's telemetry endpoint is severed at build time, and **the build fails** if it ever stops being found. |
-| **A live tuner** | `npm run tune` loops the full timeline against the *same* renderer and shaders the extension ships, with HMR on the GLSL. |
-| **162 tests, zero runtime deps** | The recogniser, the hand mapping, the filter, the header parsing and the shaders themselves are all unit-tested. Nothing ships at runtime except the deliberately bundled hand model. |
+| **A live tuner** | `npm run tune` loops the whole timeline against the *same* renderer and shaders the extension ships, with HMR on the GLSL. |
+| **162 tests, zero runtime deps** | The recogniser, the hand mapping, the filter, the header parsing and the shaders are all unit-tested. Nothing ships at runtime except the bundled hand model. |
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
@@ -64,13 +62,10 @@ That is the entire product. Everything below is what it takes to make it feel th
 
 ### Prerequisites
 
-| | |
-|---|---|
-| **Node.js** | Current LTS |
-| **npm** | Ships with Node |
-| **Chrome** | 120 or newer (`minimum_chrome_version`) |
+- **Node.js**, current LTS, and the npm that ships with it
+- **Chrome 120 or newer** (`minimum_chrome_version` in the manifest)
 
-A webcam is optional — it is required only for the hand trigger.
+A webcam is optional. You need one only for the hand trigger.
 
 ### Installation
 
@@ -110,8 +105,8 @@ That is it. Open any page and draw.
 | Trigger | How | Notes |
 |---|---|---|
 | **Right mouse button** *(default)* | Hold it and draw a circle around a link. | A right-click that does not become a circle still opens the context menu. |
-| **Hold `Alt`** | No buttons at all — just move and draw. | The better option on a trackpad. |
-| **Hand in the air** | Raise index and middle finger, fold ring and pinky, draw a circle at the webcam. | Requires one-time camera consent. |
+| **Hold `Alt`** | No buttons at all. Just move and draw. | The better option on a trackpad. |
+| **Hand in the air** | Raise index and middle finger, fold ring and pinky, draw a circle at the webcam. | Needs camera permission once. |
 
 Pick the trigger in the toolbar popup, or on the full settings page.
 
@@ -123,11 +118,11 @@ Pick the trigger in the toolbar popup, or on the full settings page.
 
 ### With your hand
 
-1. Open the camera page from the popup and grant permission. **Consent is collected in a real tab, never in the popup** — the permission bubble takes focus, Chrome closes the popup, and the promise never settles.
+1. Open the camera page from the popup and grant permission. **Consent is collected in a real tab, never in the popup.** The permission bubble takes focus, Chrome closes the popup, and the promise never settles.
 2. Select the **Hand** trigger.
-3. Raise two fingers and draw. A live trail of embers follows your fingertip while you are still drawing; the circle closes when the recogniser is satisfied.
+3. Raise two fingers and draw. A trail of embers follows your fingertip while you are still drawing, and the circle closes when the recogniser is satisfied.
 
-The camera page doubles as a live diagnostic: it draws the **active box** — the region of the camera frame that maps onto your viewport — so the mapping constants can be judged by eye rather than by argument.
+That camera page doubles as a diagnostic. It draws the **active box**, the region of the camera frame that maps onto your viewport, so the mapping constants can be judged by eye instead of by argument.
 
 <div align="center">
 
@@ -153,30 +148,30 @@ The tuner loops the entire departure timeline against the **same `GLRenderer`, t
 
 ### The departure
 
-A gesture fires. What happens next is ordered with some care.
+A gesture fires, and the rest runs in this order.
 
-1. **The page is captured first, before any overlay exists.** Capture it after the ring is on screen and the lens bends a page with the ring already baked into it — a ghost ring under the real one.
-2. **The target is resolved.** `elementsFromPoint` finds the nearest `<a href>`. Hand mode additionally searches a spiral inside the disc, because a hand in the air only lands roughly where you mean.
-3. **The worker probes the destination** and answers `{mode:"iframe"}` or `{mode:"vision", …}` — an image, its kind, a theme colour, a title. Mode A does not wait on the probe at all; the probe runs behind it on a budget nothing blocks on.
-4. **Prefetch hints go out** the instant the target is known — `prerender` same-origin, `prefetch` otherwise.
+1. **The page is captured first, before any overlay exists.** Capture it after the ring is on screen and the lens bends a page with the ring already baked into it, which shows up as a ghost ring under the real one.
+2. **The target is resolved.** `elementsFromPoint` finds the nearest `<a href>`. Hand mode also searches a spiral inside the portal, because a hand in the air lands only roughly where you mean.
+3. **The worker probes the destination** and answers `{mode:"iframe"}` or `{mode:"vision", …}` with an image, its kind, a theme colour and a title. Mode A does not wait on the probe at all; the probe runs behind it on a budget nothing blocks on.
+4. **Prefetch hints go out** the instant the target is known: `prerender` same-origin, `prefetch` otherwise.
 5. **The phases run.**
 
 | Phase | ms | Behaviour |
 |---|---:|---|
-| `IGNITE` | 220 | The ring blooms outward from the centre; the full circle lights, sparks radially. |
-| `OPEN` | 180 | The disc punctures; the lens well begins to form. |
+| `IGNITE` | 220 | The ring blooms outward from the centre, the full circle lights, sparks fly radially. |
+| `OPEN` | 180 | The portal opens and the lens well begins to form. |
 | `HOLD` | until dismissed | The gravity well breathes. Closes on exactly two things: a click outside, or any key. |
-| `COMMIT` / lens | 260 | The well deepens — the page bends into a stationary disc. |
-| `COMMIT` / dive | 320 | Zoom 1 → 3.1. The hole opens past the viewport corners. |
-| `WAITING` | ∞ | The destination has not arrived yet. Holds the dive's final geometry — no ring, no wash, nothing new drawn. |
+| `COMMIT` / lens | 260 | The well deepens and the page bends into a stationary portal. |
+| `COMMIT` / dive | 320 | Zoom 1 → 3.1. The portal opens past the viewport corners. |
+| `WAITING` | ∞ | The destination has not arrived yet. Holds the dive's final geometry, drawing no ring and no wash. |
 
 6. **`PORTAL_COMMIT`** arms the handoff and releases the header rule. Navigation happens on the acknowledgement, with a 700 ms backstop so a dead service worker can never block it.
 
-There is no arrival animation on the destination page, and that is deliberate — see *Engineering notes* below.
+There is no arrival animation on the destination page. That was removed on purpose; the engineering notes below say why.
 
 ### The recogniser
 
-[`src/content/gesture.ts`](src/content/gesture.ts) is pure, DOM-free, and covered by 31 tests. It accumulates turning angle about a running centroid; **the (−π, π] unwrap is the whole algorithm** — without it, every crossing of `atan2`'s branch cut injects a ±2π spike.
+[`src/content/gesture.ts`](src/content/gesture.ts) is pure, DOM-free, and covered by 31 tests. It accumulates turning angle about a running centroid. **The (−π, π] unwrap is the whole algorithm.** Without it, every crossing of `atan2`'s branch cut injects a ±2π spike.
 
 A gesture fires when all of these hold:
 
@@ -185,9 +180,9 @@ A gesture fires when all of these hold:
 rStd / rMean < 0.30            path length >= 150 px        >= 12 points
 ```
 
-`trimLeadIn` drops a leading run of samples inside 80 % of the ring — people press the button *on the thing they want* and then swing outward, and those samples wreck the radius variance. It is capped at a third of the buffer so it cannot eat a lobe of a figure-eight. `explain()` reports which criterion failed and by how much; the **debug** option surfaces it once per attempt.
+`trimLeadIn` drops a leading run of samples inside 80 % of the ring. People press the button *on the thing they want* and then swing outward, and those first samples wreck the radius variance. It is capped at a third of the buffer so it cannot eat a lobe of a figure-eight. `explain()` reports which criterion failed and by how much, and the **debug** option surfaces that once per attempt.
 
-> A half circle turns about **4.25 rad** around its centroid, not π — the centroid of an arc sits inside it. The margin to the 5.50 threshold is smaller than it looks.
+> A half circle turns about **4.25 rad** around its centroid rather than π, because the centroid of an arc sits inside it. The margin to the 5.50 threshold is smaller than it looks.
 
 ### The hand pipeline
 
@@ -195,22 +190,22 @@ rStd / rMean < 0.30            path length >= 150 px        >= 12 points
 offscreen document (webcam) -> service worker -> active tab
 ```
 
-MediaPipe Hand Landmarker, 21 landmarks, bundled locally, running on a `setInterval` at 33 ms — **never `requestAnimationFrame`**, because an offscreen document is never rendered and those callbacks never fire.
+MediaPipe Hand Landmarker, 21 landmarks, bundled locally, running on a `setInterval` at 33 ms. **Never `requestAnimationFrame`:** an offscreen document is never rendered, so those callbacks never fire.
 
-The fingertip then crosses three deliberate stages before it reaches the recogniser:
+The fingertip passes through three stages before it reaches the recogniser.
 
-- **The active box** ([`handmap.ts`](src/shared/handmap.ts)) — a centred rectangle of the camera frame, sized to the *viewport's* aspect ratio and stretched onto the whole viewport. A hand never reaches the corners of the frame (shoulders, field of view, arm length), and a 4:3 camera normalised independently on each axis turns a physical circle into an ellipse 1.33× wider than tall on a 16:9 screen — while the recogniser, seeing a perfect circle, fires happily. The box fixes both. Coverage is 0.92 of the frame width.
-- **A One Euro filter** — the box amplifies jitter by exactly as much as it amplifies motion, so the amplified fingertip is filtered before anything reads it.
-- **Asymmetric hysteresis** — 3 good frames to arm, 9 bad to disarm. Landmark inference flickers, and at 25 fps a one-second circle offers 25 chances to lose the whole stroke.
+- **The active box** ([`handmap.ts`](src/shared/handmap.ts)) is a centred rectangle of the camera frame, sized to the *viewport's* aspect ratio and stretched onto the whole viewport. A hand never reaches the corners of the frame, given shoulders, field of view and arm length. And a 4:3 camera normalised independently on each axis turns a physical circle into an ellipse 1.33× wider than tall on a 16:9 screen, while the recogniser, seeing a perfect circle in its own coordinates, fires happily. The box fixes both. Coverage is 0.92 of the frame width.
+- **A One Euro filter** smooths the mapped fingertip. The box amplifies jitter by exactly as much as it amplifies motion, so the result has to be filtered before anything reads it.
+- **Asymmetric hysteresis** arms on 3 good frames and disarms on 9 bad ones. Landmark inference flickers, and at 25 fps a one-second circle offers 25 chances to lose the whole stroke.
 
-The result feeds **the same pure recogniser the mouse uses**. While armed, `HAND_PREVIEW` streams at 22 Hz and the departure **adopts the preview's overlay** rather than rebuilding it.
+What comes out feeds **the same pure recogniser the mouse uses**. While armed, `HAND_PREVIEW` streams at 22 Hz, and the departure **adopts the preview's overlay** instead of rebuilding it.
 
 <details>
-<summary><b>Verified platform constraints — do not "simplify" these</b></summary>
+<summary><b>Verified platform constraints, none of them optional</b></summary>
 
 <br>
 
-Each of these was discovered the hard way and is load-bearing.
+Every row here cost a debugging session. The right-hand column is load-bearing.
 
 | Constraint | What the code does |
 |---|---|
@@ -225,25 +220,25 @@ Each of these was discovered the hard way and is load-bearing.
 | Sites with their own service worker never hit the network | The iframe reveal is a deadline, not a teardown. |
 | No injection on `chrome://`, the PDF viewer, or the Web Store | Every path degrades to a plain `location.href`. |
 | Page CSS can reach the host element | Random tag name, closed shadow root, inline `!important`. |
-| `prefers-reduced-motion` | The animation is skipped; navigate directly. |
+| `prefers-reduced-motion` | The animation is skipped and the tab navigates directly. |
 | An offscreen document is never rendered | The tracker uses `setInterval`, never `rAF`. |
 | Chrome closes a popup that loses focus | Camera consent happens in a tab. |
 
 </details>
 
 <details>
-<summary><b>Engineering notes — the expensive lessons</b></summary>
+<summary><b>Engineering notes, or why some of this looks strange</b></summary>
 
 <br>
 
-The full ledger lives in [HANDOFF.md][handoff-url], with root causes recorded so they are not reintroduced. A representative few:
+Root causes worth writing down, so nobody reintroduces them.
 
-- **Never transform `<html>`.** A `transform` on the root element makes it the containing block for fixed-position descendants — so the overlay host's `inset: 0` began resolving against the *document* height, and the host grew thousands of pixels tall while its drawing buffer stayed viewport-sized. The DOM dive was deleted outright; the dive is now a uniform in `lens.frag`.
+- **Never transform `<html>`.** A `transform` on the root element makes it the containing block for fixed-position descendants, so the overlay host's `inset: 0` started resolving against the *document* height. The host grew thousands of pixels tall while its drawing buffer stayed viewport-sized. The DOM dive was deleted outright, and the dive is now a uniform in `lens.frag`.
 - **Premultiplied alpha, applied twice.** The context was created with `premultipliedAlpha: false` while the additive passes leave the framebuffer already premultiplied. The compositor multiplied by alpha a second time, so a fragment of intensity `i` reached the screen at `i³`. A 0.3 glow composited at 0.027.
-- **Never clamp the argument of a Gaussian.** `exp(-sq(max(0.0, sweep - rel) / 0.26))` returns **1.0** everywhere ahead of the sweep, because the clamp makes the argument zero — so the entire ring lit while only an arc had been traced. There is now a test that forbids the pattern in any shader, and another asserting every additive ring term sits inside the arc mask.
+- **Never clamp the argument of a Gaussian.** `exp(-sq(max(0.0, sweep - rel) / 0.26))` returns **1.0** everywhere ahead of the sweep, because the clamp makes the argument zero. The entire ring lit while only an arc had been traced. A test now forbids the pattern in any shader, and another asserts that every additive ring term sits inside the arc mask.
 - **The fallback that could never engage.** `GLRenderer` acquires the WebGL2 context *before* compiling shaders, so on a shader failure `getContext("2d")` returns null forever on that canvas. The Canvas2D fallback threw, `createOverlay()` returned null, and the whole feature degraded silently to a plain navigation. The fallback now mounts a fresh canvas.
-- **`use_dynamic_url: true` bricks the extension.** It looks like the free fix for the fingerprinting exposure below. Chrome then refuses the static path, the `@crxjs` loader dies on a failed dynamic import, and there is **no content script at all** on any page — with nothing in the extension's error list to explain it. Reverted, with the reasoning recorded in `vite.config.ts`.
-- **Two tunnels.** The dive opened a hole past the viewport corners, and then the arriving page opened a second hole from the same centre — one gesture, the same visual twice. Removing the arrival took a synchronous visibility prelude with it, and that prelude had been hiding `<html>` on **every page load in the browser**, portal or not, waiting on a service-worker round trip before first paint. That tax is gone.
+- **`use_dynamic_url: true` bricks the extension.** It looks like a free fix for the fingerprinting exposure described below. Chrome then refuses the static path, the `@crxjs` loader dies on a failed dynamic import, and **no content script loads on any page**, with nothing in the extension's error list to explain it. Reverted, with the reasoning recorded in `vite.config.ts`.
+- **Two portals for one gesture.** The dive opened past the viewport corners, and then the arriving page opened a second portal from the same centre: one gesture, the same visual twice. Removing the arrival took a synchronous visibility prelude with it, and that prelude had been hiding `<html>` on **every page load in the browser**, portal or not, waiting on a service-worker round trip before first paint. That cost is gone.
 
 </details>
 
@@ -253,27 +248,25 @@ The full ledger lives in [HANDOFF.md][handoff-url], with root causes recorded so
 
 ## Privacy & Security
 
-**Nothing is exfiltrated. Everything happens on the machine.**
+Everything runs on your machine, and nothing is uploaded.
 
-- **The webcam is processed locally.** Frames are read and discarded — never recorded, uploaded or stored. The camera runs only while the hand trigger is selected, and the hand model is bundled, so it works offline.
-- **MediaPipe's telemetry is severed at build time.** The library batches usage events and POSTs them to a Google logging endpoint every 60 seconds. A Vite plugin rewrites that URL to a path that 404s, and **the build fails if the endpoint is not found** — a dependency upgrade cannot quietly reintroduce it. Verify with `npm run build && grep -r "odml.pa.googleapis" dist/`.
+- **The webcam is processed locally.** Frames are read and discarded, never recorded, uploaded or stored. The camera runs only while the hand trigger is selected, and the model is bundled, so it works offline.
+- **MediaPipe's telemetry is severed at build time.** The library batches usage events and POSTs them to a Google logging endpoint every 60 seconds. A Vite plugin rewrites that URL to a path that 404s, and **the build fails if the endpoint is not found**, so a dependency upgrade cannot quietly reintroduce it. Verify with `npm run build && grep -r "odml.pa.googleapis" dist/`.
 - **The page snapshot never leaves the tab.** It is `captureVisibleTab` on your own active tab, and it is dropped when the portal closes.
 - **Preview fetches use `credentials: "omit"`**, so nothing personalised is pulled into a preview.
-- **No injection sinks.** No `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function` in first-party code — every node is built with `createElement` and `textContent`. Every URL reaching `location.href` or an `iframe.src` passes an `^https?://` test, so `javascript:`, `data:`, `file:` and `chrome-extension:` cannot get through.
-- **Minimal permissions.** `storage`, `declarativeNetRequestWithHostAccess`, `favicon`, `offscreen` and `<all_urls>`. **No `tabs`** (the worker reads `sender.tab.id`), no `scripting`, no `webRequest`, no `cookies`, no `downloads`.
+- **No injection sinks.** No `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function` in first-party code. Every node is built with `createElement` and `textContent`, and every URL reaching `location.href` or an `iframe.src` passes an `^https?://` test, so `javascript:`, `data:`, `file:` and `chrome-extension:` cannot get through.
+- **Minimal permissions.** `storage`, `declarativeNetRequestWithHostAccess`, `favicon`, `offscreen` and `<all_urls>`. No `tabs` (the worker reads `sender.tab.id`), no `scripting`, no `webRequest`, no `cookies`, no `downloads`.
 - **No page can talk to the worker.** There is no `externally_connectable`. Hand messages are additionally gated on `!sender.tab`, so a content script cannot synthesise a gesture for another tab.
-- **Semgrep:** 189 rules across `p/javascript`, `p/typescript`, `p/xss`, `p/secrets`, `p/command-injection` and `p/owasp-top-ten` — **0 findings**. A generic ruleset knows nothing about an extension's threat model, so the manual review in HANDOFF §13 is the real one.
+- **Semgrep:** 189 rules across `p/javascript`, `p/typescript`, `p/xss`, `p/secrets`, `p/command-injection` and `p/owasp-top-ten`, with **0 findings**. A generic JavaScript ruleset cannot see that a network rule strips a security header, or that a message crossed a trust boundary, so the manual review matters more than the scan does.
 
-### Stated plainly
-
-Two things are worth saying out loud rather than burying:
+### Two things worth knowing
 
 1. **Circling a link fetches that URL before you commit.** The site learns you looked, the way a hover-prefetch would.
-2. **Mode A opens a narrow clickjacking window.** Framing a site that refuses framing means stripping `X-Frame-Options` and CSP for that host — and a declarative rule cannot be scoped to a single frame, so for a few hundred milliseconds the protection is off for any frame in that tab. It requires a deliberate gesture on a link to that exact target; the rule is dropped the instant our own preview loads; and our frame is inert (`pointer-events: none`, no forms, no popups, no top navigation — clickjacking needs a click to steal, and there is none). **The setting can be turned off**, and then no rule is ever created.
+2. **Mode A opens a narrow clickjacking window.** Framing a site that refuses framing means stripping `X-Frame-Options` and CSP for that host, and a declarative rule cannot be scoped to a single frame, so for a few hundred milliseconds the protection is off for any frame in that tab. Three things bound it: the window needs a deliberate gesture on a link to that exact target, the rule is dropped the instant our own preview loads, and our frame is inert. Pointer events are off, forms and popups are blocked, and it can never navigate your tab. Clickjacking needs a click to steal and there is none. **The setting can also be turned off**, and then no rule is ever created.
 
-**One known exposure is accepted, not fixed:** `@crxjs` must list the content-script chunk in `web_accessible_resources` at a path that is stable under a published extension's fixed id, so any site can probe it and learn SlingTab is installed. The documented mitigation does not work here — see the note on `use_dynamic_url` above.
+**One exposure is accepted rather than fixed.** `@crxjs` must list the content-script chunk in `web_accessible_resources` at a path that stays stable under a published extension's fixed id, so any site can probe it and learn SlingTab is installed. The documented mitigation does not work here, for the `use_dynamic_url` reason above.
 
-Both points are stated in the product itself, not only here. The settings page spells out exactly which headers are removed, how long the rule lives, and why the framed page cannot be clicked:
+The settings page carries the same explanation, next to the switch that turns it off.
 
 <div align="center">
 
@@ -292,20 +285,20 @@ npm test          # vitest run
 npm run typecheck # tsc --noEmit
 ```
 
-**162 tests across 12 files**, all pure — no browser, no camera, no GPU.
+**162 tests across 12 files**, all of them pure. No browser, camera or GPU required.
 
 | Suite | Covers |
 |---|---|
 | `gesture.test.ts` | Angle unwrap, CW/CCW circles, rejection of lines, half-circles, figure-eights and scribbles, lead-in trim, `explain()`. |
 | `preview.test.ts` | `og:image` priority, title and description extraction, relative URL resolution, entity decoding, CSP/XFO framability, chunked base64, colour parsing. |
-| `handmap.test.ts` | The active box matches the viewport's aspect *physically*; every screen corner is reachable; a circle in the air stays a circle (`rStd/rMean < 0.01`); NaN-proofing. |
-| `onefilter.test.ts` | Convergence, jitter halved at rest, under 80 ms lag at 2 screens/s, beats a fixed low-pass at speed, survives repeated and backwards timestamps. |
-| `settings.test.ts` | `patchSettings` leaves untouched fields alone and **never silently disables the extension**; schema migration; pre-rename keys are read and moved once. |
-| `shaders.test.ts` | Uniform names cross-checked against `gl.ts` *parsed from the source*, so the test cannot go stale; no `pow()` on a base that can go negative; no clamped-argument Gaussian. |
-| `glsl-syntax.test.ts` | All six shaders parsed with a real GLSL parser in Node; every called function is builtin or locally defined. |
+| `handmap.test.ts` | The active box matches the viewport's aspect *physically*, every screen corner is reachable, a circle in the air stays a circle (`rStd/rMean < 0.01`), NaN-proofing. |
+| `onefilter.test.ts` | Convergence, jitter halved at rest, under 80 ms lag at 2 screens/s, beating a fixed low-pass at speed, surviving repeated and backwards timestamps. |
+| `settings.test.ts` | `patchSettings` leaves untouched fields alone and **never silently disables the extension**, schema migration, pre-rename keys read and moved once. |
+| `shaders.test.ts` | Uniform names cross-checked against `gl.ts` *parsed from the source*, so the test cannot go stale. No `pow()` on a base that can go negative, no clamped-argument Gaussian. |
+| `glsl-syntax.test.ts` | All six shaders parsed with a real GLSL parser in Node. Every called function is builtin or locally defined. |
 | `handpose.test.ts` · `handpreview.test.ts` · `wasmlog.test.ts` · `linkimport.test.ts` | The two-finger gate, particle budget headroom, WASM log routing, and the quick-link import parser. |
 
-**Not covered:** GLSL type errors and driver behaviour (needs a real compile), the webcam path end to end (needs a camera), and the manual acceptance matrix.
+**Not covered:** GLSL type errors and driver behaviour, which need a real compile; the webcam path end to end, which needs a camera; and the manual acceptance matrix.
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
@@ -317,11 +310,11 @@ npm run typecheck # tsc --noEmit
 - [x] Bring `camera.html` onto the same visual language
 - [x] Sever MediaPipe's telemetry at build time, with a failing build as the guard
 - [x] Route WASM log chatter away from the extension's error list
-- [ ] **Walk the manual acceptance matrix in a real browser** — framing behaviour on popular sites, service-worker kill, `* { all: unset }` pages, the PDF viewer, `chrome://` inertness, session rules empty after 20 gestures
-- [ ] Tune the lens constants (`LENS_PEAK`, `SWIRL_PEAK`, `DIVE_ZOOM`) by eye — they are reasoned, not measured
+- [ ] **Walk the manual acceptance matrix in a real browser:** framing behaviour on popular sites, service-worker kill, `* { all: unset }` pages, the PDF viewer, `chrome://` inertness, session rules empty after 20 gestures
+- [ ] Tune the lens constants (`LENS_PEAK`, `SWIRL_PEAK`, `DIVE_ZOOM`) by eye. They are reasoned, not measured
 - [ ] Fine-tune the One Euro parameters and the active-box coverage against a real webcam
 - [ ] A per-host skip list for sites that render a login wall when framed
-- [ ] Make sparks readable on light pages — they blend additively and cannot darken, so the ring reads as a white-out
+- [ ] Make sparks readable on light pages. They blend additively and cannot darken, so the ring reads as a white-out
 - [ ] A first-run onboarding flow
 
 See the [open issues][issues-url] for the full list.
@@ -332,24 +325,20 @@ See the [open issues][issues-url] for the full list.
 
 ## Contributing
 
-Contributions are what make the open-source community what it is. Any contribution you make is **greatly appreciated**.
+Issues and pull requests are welcome. The usual shape:
 
-1. Fork the project
-2. Create your feature branch — `git checkout -b feature/amazing-feature`
-3. Make your change, and **add a test if the logic is pure**
-4. Verify — `npm test && npm run typecheck && npm run build`
-5. Commit — `git commit -m 'Add some amazing feature'`
-6. Push — `git push origin feature/amazing-feature`
-7. Open a Pull Request
+1. Fork the project and branch off `main` (`git checkout -b feature/your-feature`)
+2. Make your change, and **add a test if the logic is pure**
+3. Verify with `npm test && npm run typecheck && npm run build`
+4. Push the branch and open a pull request
 
-Or simply open an issue with the tag `enhancement`.
+For anything you want to discuss before building it, open an issue tagged `enhancement`.
 
 ### Before you send a PR
 
-- **[HANDOFF.md][handoff-url] is the reference document**, and the only one kept current. If you are tempted to explain a mechanism in the README, explain it there instead.
 - **Do not tune the look by editing constants.** Use `npm run tune`.
 - **`tests/` cannot see a manifest key.** If you change the manifest, load `dist/` unpacked and draw a circle before believing it works.
-- **Read the bug ledger before "simplifying" anything.** Most of the odd-looking code in this repository is odd for a reason that took a day to find.
+- **Read the comments before simplifying anything.** Most of the odd-looking code here is odd for a reason that took a day to find, and that reason is usually written directly above it.
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
@@ -399,7 +388,6 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 
 <!-- LINKS -->
 [issues-url]: https://github.com/AtlasAnatomy/SlingTab/issues
-[handoff-url]: HANDOFF.md
 [mediapipe-url]: https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker
 [vite-url]: https://vitejs.dev/
 [crxjs-url]: https://crxjs.dev/vite-plugin
