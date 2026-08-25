@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SlingTab — rim tuner</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: #08070a;
+        color: #f3e4cd;
+        font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        overflow: hidden;
+      }
+      #stage { position: fixed; inset: 0; }
+      canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+      #panel {
+        position: fixed; top: 0; right: 0; bottom: 0; width: 330px;
+        background: rgba(12, 10, 14, 0.92);
+        border-left: 1px solid #2a2028;
+        overflow-y: auto;
+        padding: 14px 16px 40px;
+        backdrop-filter: blur(8px);
+      }
+      #panel.hidden { transform: translateX(100%); }
+      h2 {
+        font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+        color: #ff8a1f; margin: 18px 0 8px; font-weight: 700;
+      }
+      h2:first-child { margin-top: 0; }
+      .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-bottom: 7px; }
+      .row label { color: #b09a7d; }
+      .row output { color: #ffd27a; font-variant-numeric: tabular-nums; }
+      .row input { grid-column: 1 / -1; width: 100%; accent-color: #ff8a1f; margin: 0; }
+      .bar { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+      button {
+        background: #241c14; color: #f3e4cd; border: 1px solid #3a2e20;
+        border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer;
+      }
+      button:hover { border-color: #ff8a1f; }
+      #out {
+        width: 100%; height: 150px; margin-top: 10px; resize: vertical;
+        background: #0d0b10; color: #b09a7d; border: 1px solid #2a2028;
+        border-radius: 6px; padding: 8px; font: inherit;
+      }
+      #hint {
+        position: fixed; left: 14px; bottom: 12px; color: #6b5c4a;
+      }
+      kbd {
+        background: #241c14; border: 1px solid #3a2e20; border-radius: 4px;
+        padding: 1px 5px; color: #b09a7d;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="panel"></div>
+    <div id="hint"><kbd>H</kbd> panel · <kbd>Space</kbd> freeze · click to move the ring</div>
+    <script type="module" src="./tune.ts"></script>
+  </body>
+</html>

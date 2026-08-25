@@ -1,0 +1,26 @@
+{
+  "name": "slingtab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Gesture-driven portal navigation for Chrome.",
+  "scripts": {
+    "dev": "vite",
+    "tune": "vite --config vite.tune.config.ts",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node tools/make-icons.mjs"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.2.0",
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "@shaderfrog/glsl-parser": "^7.0.1",
+    "@types/chrome": "^0.0.313",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "vitest": "^3.0.5"
+  }
+}

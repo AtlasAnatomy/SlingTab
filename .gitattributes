@@ -1,0 +1,19 @@
+# Normalise line endings in the repository, whatever the checkout platform does
+# locally. Without this every file authored on Windows lands in git with CRLF and
+# the first checkout on macOS or CI rewrites the whole tree.
+* text=auto eol=lf
+
+# Vendored binaries: never diffed, never normalised, and not counted as the
+# project's own code in language statistics.
+*.wasm binary
+*.task binary
+*.ttf binary
+*.png binary
+*.ico binary
+public/mediapipe/** linguist-vendored
+public/models/** linguist-vendored
+public/fonts/** linguist-vendored
+
+# Shaders are code, not plain text.
+*.frag linguist-language=GLSL
+*.vert linguist-language=GLSL

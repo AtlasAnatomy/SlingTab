@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SlingTab — camera access</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 48px 24px 80px; min-height: 100vh;
+        background: radial-gradient(1200px 600px at 50% -10%, #2a2015, #17130e);
+        color: #f3e4cd;
+        font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 560px; margin: 0 auto; }
+      h1 { font-size: 24px; font-weight: 620; margin: 0 0 6px; letter-spacing: -0.01em; }
+      h1 .glyph {
+        display: inline-block; width: 13px; height: 13px; margin-right: 10px;
+        border-radius: 999px; border: 2px solid #ff8a1f;
+        box-shadow: 0 0 14px rgba(255,138,31,.75); vertical-align: 1px;
+      }
+      p { color: #b09a7d; }
+      section {
+        background: #201a13; border: 1px solid #3a2e20; border-radius: 14px;
+        padding: 22px; margin-top: 22px;
+      }
+      button {
+        background: #ff8a1f; color: #241505; border: 0; border-radius: 9px;
+        padding: 11px 18px; font: inherit; font-weight: 600; cursor: pointer;
+      }
+      button:hover { filter: brightness(1.08); }
+      button.ghost { background: #241c14; color: #f3e4cd; border: 1px solid #3a2e20; }
+      .status { margin-top: 16px; padding: 12px 14px; border-radius: 10px; }
+      .status.ok { border: 1px solid #3f6b2a; background: #14200f; color: #cdeab2; }
+      .status.warn { border: 1px solid #7c3a0e; background: #2a1408; color: #ffd9b5; }
+      .stage {
+        position: relative; width: 100%; max-width: 380px; margin-top: 16px;
+        border-radius: 12px; overflow: hidden; border: 1px solid #3a2e20;
+        background: #0d0b08; aspect-ratio: 4 / 3;
+      }
+      .stage video, .stage canvas {
+        position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+        /* Mirrored, matching how the tracker reads the frame. */
+        transform: scaleX(-1);
+      }
+      
+      .live {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-top: 10px; font-size: 12px; color: #b09a7d;
+      }
+      .live i {
+        display: inline-block; width: 8px; height: 8px; border-radius: 999px;
+        background: #5a4a38; margin-right: 7px; vertical-align: 0;
+      }
+      .live i.on { background: #ff8a1f; box-shadow: 0 0 8px rgba(255,138,31,.9); }
+      .fired {
+        opacity: 0; color: #241505; background: #ffd27a; font-weight: 700;
+        border-radius: 999px; padding: 2px 10px; transition: opacity 120ms;
+      }
+      .fired.on { opacity: 1; }
+      .hint { font-size: 12.5px; margin-top: 12px; }
+      ul { color: #b09a7d; padding-left: 20px; }
+      .hidden { display: none !important; }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1><span class="glyph"></span>Camera access</h1>
+      <p>
+        SlingTab can watch for a circular hand gesture instead of a mouse drag.
+      </p>
+
+      <section>
+        <div class="row">
+          <button id="ask">Allow camera access</button>
+          <button id="done" class="ghost hidden">Close this tab</button>
+        </div>
+
+        <div id="status" class="status warn">
+          Chrome will ask for permission. This page has to be a normal tab —
+          the toolbar popup closes the instant the permission bubble takes
+          focus, which cancels the request.
+        </div>
+
+        <div id="stage" class="stage hidden">
+          <video id="preview" autoplay muted playsinline></video>
+          <canvas id="overlay" width="480" height="360"></canvas>
+        </div>
+        <div id="live" class="live hidden">
+          <span><i id="dot"></i><span id="liveText">waiting for a hand…</span></span>
+          <span id="fired" class="fired">circle detected</span>
+        </div>
+        <p class="hint hidden" id="hint">
+          The skeleton is the hand model's 21 landmarks. Raise <b>index and
+          middle</b> only, then draw a circle — the pale line is the path the
+          recogniser is accumulating, and the badge lights up when it closes.
+          Change this to accept any hand shape in <b>More settings</b>.
+        </p>
+        <p class="hint hidden" id="boxHint">
+          The dashed rectangle <b>is your screen</b>. Everything inside it maps
+          onto the whole browser window, so its edges are the edges of the
+          display and its shape is your display's shape — which is why a circle
+          drawn inside it stays a circle when the portal opens. A hand outside
+          the rectangle is pinned to the nearest edge, so you never have to reach
+          the corners of the picture to reach the corners of the screen.
+        </p>
+
+        <ul>
+          <li>Video is processed on your machine, frame by frame, and discarded.</li>
+          <li>Nothing is recorded, uploaded, or stored.</li>
+          <li>The camera only runs while the hand trigger is selected.</li>
+          <li>
+            SlingTab reads hand landmarks — joint positions and which fingers are
+            raised. It does not identify you, and no frame is kept.
+          </li>
+          <li>
+            The model runs locally, in WebAssembly, bundled with the extension.
+            It works offline.
+          </li>
+        </ul>
+      </section>
+    </main>
+    <script type="module" src="/camera.ts"></script>
+  </body>
+</html>

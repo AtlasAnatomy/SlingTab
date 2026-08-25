@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SlingTab</title>
+    <link rel="stylesheet" href="/ui/tokens.css" />
+    <style>
+      /*
+       * SlingTab — toolbar popup.
+       *
+       * Palette, type and the shared primitives live in /ui/tokens.css. Only
+       * this surface's layout is here.
+       *
+       * The popup has one job: choose how you draw, and confirm it is on. It is
+       * built as a single instrument block with hairline dividers rather than a
+       * gapped column of rounded cards, because that is the shape a mode
+       * selector on a device takes, and because gapped rounded cards is the
+       * shape every settings panel defaults to.
+       */
+      body {
+        width: 320px;
+        padding: var(--s-sm);
+        background:
+          radial-gradient(120% 70% at 50% -10%, oklch(22% 0.03 60) 0%, transparent 60%),
+          var(--void);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .mark {
+        width: 44px;
+        height: 44px;
+      }
+      .wordmark {
+        margin-right: auto;
+        font-size: 25px;
+      }
+
+      .lede {
+        margin: 14px 0 0;
+        color: var(--mute);
+        font-size: 12.5px;
+      }
+
+      /* --------------------------------------------------------- the stack */
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0 var(--s-xs);
+      }
+      .eyebrow::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--rim);
+      }
+
+      .stack {
+        border: 1px solid var(--rim);
+        border-radius: var(--r-box);
+        overflow: hidden;
+        background: var(--well);
+      }
+
+      .mode {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 3px 10px;
+        align-items: baseline;
+        padding: 11px 13px 11px 15px;
+        cursor: pointer;
+        transition: background 160ms linear;
+      }
+      .mode + .mode {
+        border-top: 1px solid var(--seam);
+      }
+      .mode:hover {
+        background: var(--raised);
+      }
+      .mode input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      /* The lit edge: a selected row marked the way the ring marks a stroke. */
+      .mode::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--ember);
+        box-shadow: 0 0 12px oklch(74.8% 0.176 55.4 / 0.7);
+        transform: scaleY(0);
+        transition: transform 200ms var(--ease);
+      }
+      .mode.on::before {
+        transform: scaleY(1);
+      }
+      .mode.on {
+        background: oklch(22% 0.016 60);
+      }
+
+      .mode b {
+        font-weight: 550;
+        font-size: 13.5px;
+        color: var(--mute);
+        transition: color 160ms linear;
+      }
+      .mode.on b {
+        color: var(--wash);
+      }
+
+      /* What you physically do. Structure carrying fact, not decoration. */
+      .mode .code {
+        grid-row: 1;
+        grid-column: 2;
+        font: 500 10px/1 var(--mono);
+        letter-spacing: 0.1em;
+        color: var(--dim);
+        transition: color 160ms linear;
+      }
+      .mode.on .code {
+        color: var(--ember);
+      }
+
+      .mode small {
+        grid-column: 1 / -1;
+        color: var(--mute);
+        font-size: 11.5px;
+      }
+      .mode input:focus-visible ~ b {
+        outline: 2px solid var(--ember);
+        outline-offset: 3px;
+      }
+
+      /* ---------------------------------------------------------- feedback */
+
+      .note {
+        margin-top: 10px;
+        padding: 10px 12px;
+        font-size: 11.5px;
+      }
+
+      #grant {
+        width: 100%;
+        margin-top: 9px;
+        padding: 9px 12px;
+      }
+
+      .foot {
+        display: flex;
+        align-items: center;
+        margin-top: 18px;
+        padding-top: 12px;
+        border-top: 1px solid var(--rim);
+      }
+      .foot a {
+        color: var(--mute);
+        text-decoration: none;
+        font: 500 12px/1 var(--mono);
+        transition: color 140ms linear;
+      }
+      .foot a:hover {
+        color: var(--glow);
+      }
+      .foot a:focus-visible {
+        outline: 2px solid var(--ember);
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <img class="mark" src="/icons/icon-128.png" alt="" aria-hidden="true" />
+      <div class="wordmark">SlingTab</div>
+      <label class="power">
+        <input type="checkbox" id="enabled" />
+        <span class="track"></span>
+        <span id="powerLabel">off</span>
+      </label>
+    </div>
+
+    <p class="lede">Draw a circle over a link, then fall through it.</p>
+
+    <p class="eyebrow">Trigger</p>
+
+    <div class="stack">
+      <label class="mode" id="opt-right">
+        <input type="radio" name="trigger" value="right" />
+        <b>Right mouse button</b>
+        <span class="code">RMB</span>
+        <small>Hold it and draw. The menu still works.</small>
+      </label>
+
+      <label class="mode" id="opt-alt">
+        <input type="radio" name="trigger" value="alt" />
+        <b>Hold Alt</b>
+        <span class="code">ALT</span>
+        <small>No buttons. Better on a trackpad.</small>
+      </label>
+
+      <label class="mode" id="opt-hand">
+        <input type="radio" name="trigger" value="hand" />
+        <b>Hand in the air</b>
+        <span class="code">CAM</span>
+        <small>Two fingers up, draw a circle. Uses the camera.</small>
+      </label>
+    </div>
+
+    <div id="cam" class="note hidden"></div>
+    <button id="grant" class="hidden">Allow camera access</button>
+
+    <div class="foot">
+      <a id="options" href="#">All settings</a>
+    </div>
+
+    <script type="module" src="/popup.ts"></script>
+  </body>
+</html>
