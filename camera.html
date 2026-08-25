@@ -3,86 +3,177 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SlingTab — camera access</title>
+    <title>SlingTab | camera access</title>
+    <link rel="stylesheet" href="/ui/tokens.css" />
     <style>
-      :root { color-scheme: dark; }
-      * { box-sizing: border-box; }
+      /*
+       * SlingTab — camera consent, and the live tracker diagnostic.
+       *
+       * On the shared tokens like the other two surfaces. It used to carry its
+       * own palette, its own type stack and its own status colours, so the
+       * first-run flow changed appearance halfway through: popup, then this.
+       *
+       * The copy is deliberately short. This page asks for a camera; every
+       * sentence that is not the ask, the privacy answer, or what to do with
+       * your hand is a sentence between the user and the decision.
+       */
       body {
-        margin: 0; padding: 48px 24px 80px; min-height: 100vh;
-        background: radial-gradient(1200px 600px at 50% -10%, #2a2015, #17130e);
-        color: #f3e4cd;
-        font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        padding: 48px var(--s-md) var(--s-2xl);
+        min-height: 100vh;
+        background:
+          radial-gradient(90% 45% at 50% -8%, oklch(22% 0.03 60) 0%, transparent 62%),
+          var(--void);
+        font-size: 14px;
+        line-height: 1.6;
       }
-      main { max-width: 560px; margin: 0 auto; }
-      h1 { font-size: 24px; font-weight: 620; margin: 0 0 6px; letter-spacing: -0.01em; }
-      h1 .glyph {
-        display: inline-block; width: 13px; height: 13px; margin-right: 10px;
-        border-radius: 999px; border: 2px solid #ff8a1f;
-        box-shadow: 0 0 14px rgba(255,138,31,.75); vertical-align: 1px;
+
+      main {
+        max-width: 560px;
+        margin: 0 auto;
       }
-      p { color: #b09a7d; }
+
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .mark {
+        width: 44px;
+        height: 44px;
+      }
+      h1 {
+        margin: 0;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: 30px;
+        line-height: 1;
+        color: var(--wash);
+      }
+
+      .lede {
+        margin: 14px 0 0;
+        color: var(--mute);
+      }
+
       section {
-        background: #201a13; border: 1px solid #3a2e20; border-radius: 14px;
-        padding: 22px; margin-top: 22px;
+        margin-top: var(--s-md);
+        padding: var(--s-md);
+        border: 1px solid var(--rim);
+        border-radius: var(--r-box);
+        background: var(--well);
       }
-      button {
-        background: #ff8a1f; color: #241505; border: 0; border-radius: 9px;
-        padding: 11px 18px; font: inherit; font-weight: 600; cursor: pointer;
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
       }
-      button:hover { filter: brightness(1.08); }
-      button.ghost { background: #241c14; color: #f3e4cd; border: 1px solid #3a2e20; }
-      .status { margin-top: 16px; padding: 12px 14px; border-radius: 10px; }
-      .status.ok { border: 1px solid #3f6b2a; background: #14200f; color: #cdeab2; }
-      .status.warn { border: 1px solid #7c3a0e; background: #2a1408; color: #ffd9b5; }
+      .actions button {
+        padding: 11px 18px;
+      }
+
+      .note {
+        margin-top: var(--s-sm);
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+
       .stage {
-        position: relative; width: 100%; max-width: 380px; margin-top: 16px;
-        border-radius: 12px; overflow: hidden; border: 1px solid #3a2e20;
-        background: #0d0b08; aspect-ratio: 4 / 3;
+        position: relative;
+        width: 100%;
+        max-width: 380px;
+        margin-top: var(--s-sm);
+        border-radius: var(--r-box);
+        overflow: hidden;
+        border: 1px solid var(--rim);
+        background: oklch(11% 0.004 70);
+        aspect-ratio: 4 / 3;
       }
-      .stage video, .stage canvas {
-        position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+      .stage video,
+      .stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
         /* Mirrored, matching how the tracker reads the frame. */
         transform: scaleX(-1);
       }
-      
+
       .live {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 12px; margin-top: 10px; font-size: 12px; color: #b09a7d;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 10px;
+        font-size: 12.5px;
+        color: var(--mute);
       }
       .live i {
-        display: inline-block; width: 8px; height: 8px; border-radius: 999px;
-        background: #5a4a38; margin-right: 7px; vertical-align: 0;
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--dim);
+        margin-right: 8px;
       }
-      .live i.on { background: #ff8a1f; box-shadow: 0 0 8px rgba(255,138,31,.9); }
+      .live i.on {
+        background: var(--ember);
+        box-shadow: 0 0 8px oklch(74.8% 0.176 55.4 / 0.9);
+      }
       .fired {
-        opacity: 0; color: #241505; background: #ffd27a; font-weight: 700;
-        border-radius: 999px; padding: 2px 10px; transition: opacity 120ms;
+        opacity: 0;
+        color: oklch(22% 0.06 50);
+        background: var(--glow);
+        font-weight: 700;
+        border-radius: var(--r-pill);
+        padding: 2px 10px;
+        transition: opacity 120ms linear;
       }
-      .fired.on { opacity: 1; }
-      .hint { font-size: 12.5px; margin-top: 12px; }
-      ul { color: #b09a7d; padding-left: 20px; }
-      .hidden { display: none !important; }
-      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .fired.on {
+        opacity: 1;
+      }
+
+      .hint {
+        margin: 12px 0 0;
+        font-size: 12.5px;
+        color: var(--mute);
+      }
+      .hint b {
+        color: var(--wash);
+        font-weight: 550;
+      }
+
+      .callout {
+        margin-top: var(--s-md);
+        padding: 14px var(--s-sm);
+        font-size: 12.5px;
+      }
+      .callout ul {
+        margin: 0;
+        padding-left: 17px;
+      }
+      .callout li + li {
+        margin-top: 6px;
+      }
     </style>
   </head>
-  <body>
+  <body class="live">
     <main>
-      <h1><span class="glyph"></span>Camera access</h1>
-      <p>
-        SlingTab can watch for a circular hand gesture instead of a mouse drag.
-      </p>
+      <div class="head">
+        <img class="mark" src="/icons/icon-128.png" alt="" aria-hidden="true" />
+        <h1>Camera access</h1>
+      </div>
+      <p class="lede">Draw the circle with your hand instead of the mouse.</p>
 
       <section>
-        <div class="row">
-          <button id="ask">Allow camera access</button>
-          <button id="done" class="ghost hidden">Close this tab</button>
+        <div class="actions">
+          <button id="ask" class="primary">Allow camera access</button>
+          <button id="done" class="hidden">Close this tab</button>
         </div>
 
-        <div id="status" class="status warn">
-          Chrome will ask for permission. This page has to be a normal tab —
-          the toolbar popup closes the instant the permission bubble takes
-          focus, which cancels the request.
-        </div>
+        <div id="status" class="note warn">Chrome will ask for permission.</div>
 
         <div id="stage" class="stage hidden">
           <video id="preview" autoplay muted playsinline></video>
@@ -92,35 +183,25 @@
           <span><i id="dot"></i><span id="liveText">waiting for a hand…</span></span>
           <span id="fired" class="fired">circle detected</span>
         </div>
+
         <p class="hint hidden" id="hint">
-          The skeleton is the hand model's 21 landmarks. Raise <b>index and
-          middle</b> only, then draw a circle — the pale line is the path the
-          recogniser is accumulating, and the badge lights up when it closes.
-          Change this to accept any hand shape in <b>More settings</b>.
+          Raise <b>index and middle finger</b>, then draw a circle.
         </p>
         <p class="hint hidden" id="boxHint">
-          The dashed rectangle <b>is your screen</b>. Everything inside it maps
-          onto the whole browser window, so its edges are the edges of the
-          display and its shape is your display's shape — which is why a circle
-          drawn inside it stays a circle when the portal opens. A hand outside
-          the rectangle is pinned to the nearest edge, so you never have to reach
-          the corners of the picture to reach the corners of the screen.
+          The dashed rectangle <b>is your screen</b>. A hand outside it is pinned
+          to the nearest edge.
         </p>
-
-        <ul>
-          <li>Video is processed on your machine, frame by frame, and discarded.</li>
-          <li>Nothing is recorded, uploaded, or stored.</li>
-          <li>The camera only runs while the hand trigger is selected.</li>
-          <li>
-            SlingTab reads hand landmarks — joint positions and which fingers are
-            raised. It does not identify you, and no frame is kept.
-          </li>
-          <li>
-            The model runs locally, in WebAssembly, bundled with the extension.
-            It works offline.
-          </li>
-        </ul>
       </section>
+
+      <div class="callout">
+        <div>
+          <ul>
+            <li>Video is read frame by frame on this machine and discarded.</li>
+            <li>Nothing is recorded, uploaded or stored.</li>
+            <li>The camera runs only while the hand trigger is selected.</li>
+          </ul>
+        </div>
+      </div>
     </main>
     <script type="module" src="/camera.ts"></script>
   </body>

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>SlingTab settings</title>
+    <title>SlingTab |settings</title>
     <link rel="stylesheet" href="/ui/tokens.css" />
     <style>
       /*
@@ -142,27 +142,27 @@
         color: var(--glow);
       }
 
-      /* --------------------------------------------------------- the panel */
+      /* ------------------------------------------------------- the callout */
 
-      .panel {
+      .callout {
         margin: var(--s-sm) 0 0;
         padding: 14px var(--s-sm);
         font-size: 12.5px;
       }
-      .panel > b {
+      .callout > div > b {
         display: block;
-        margin-bottom: var(--s-xs);
+        margin-bottom: 6px;
         font: 600 13px/1.3 var(--sans);
-        color: var(--glow);
+        color: var(--wash);
       }
-      .panel ul {
-        margin: 0;
-        padding-left: 18px;
+      .callout ul {
+        margin: 8px 0 0;
+        padding-left: 17px;
       }
-      .panel li + li {
+      .callout li + li {
         margin-top: 7px;
       }
-      .panel code,
+      .callout code,
       .hint code {
         font: 12px/1 var(--mono);
         color: var(--wash);
@@ -194,12 +194,9 @@
       .cols {
         display: grid;
         grid-template-columns: minmax(0, 5fr) minmax(0, 3fr) auto;
-        gap: var(--s-xs);
         margin: 0 0 6px;
-        font: 500 9px/1 var(--mono);
-        letter-spacing: 0.16em;
+        font: 500 11px/1 var(--mono);
         text-transform: uppercase;
-        color: var(--dim);
       }
       .cols::after {
         content: "";
@@ -325,8 +322,6 @@
       footer {
         padding: var(--s-md) 0 0;
         color: var(--dim);
-        font: 400 10px/1.7 var(--mono);
-        letter-spacing: 0.1em;
       }
 
       @media (max-width: 720px) {
@@ -352,7 +347,7 @@
         <img class="mark" src="/icons/icon-128.png" alt="" aria-hidden="true" />
         <h1>
           SlingTab
-          <span>circle to travel</span>
+          <span>Sling through the web</span>
         </h1>
         <label class="power">
           <input type="checkbox" id="enabled" />
@@ -364,7 +359,7 @@
       <section>
         <h2>
           Trigger
-          <em>How you start drawing. One at a time.</em>
+          <em>Draw a circle to open a SlingTab.</em>
         </h2>
         <div class="body">
           <label class="row">
@@ -411,12 +406,14 @@
             </span>
           </label>
 
-          <div class="panel hidden" id="camNote">
-            <b>Camera</b>
-            Video is read frame by frame on your machine and discarded. Nothing
-            is recorded, uploaded or stored, and the camera runs only while this
-            trigger is selected. The hand model is bundled with the extension and
-            works offline.
+          <div class="callout hidden" id="camNote">
+            <div>
+              <b>Camera</b>
+              Video is read frame by frame on your machine and discarded. Nothing
+              is recorded, uploaded or stored, and the camera runs only while
+              this trigger is selected. The hand model is bundled with the
+              extension and works offline.
+            </div>
           </div>
         </div>
       </section>
@@ -424,7 +421,7 @@
       <section>
         <h2>
           The portal
-          <em>What you see through the disc before you commit.</em>
+          <em>What you see through the portal before you commit.</em>
         </h2>
         <div class="body">
           <label class="row">
@@ -450,9 +447,10 @@
             </span>
           </label>
 
-          <div class="panel">
-            <b>What that second one does</b>
-            <ul>
+          <div class="callout">
+            <div>
+              <b>What that second one does</b>
+              <ul>
               <li>
                 For the framed request only, SlingTab removes the destination's
                 <code>X-Frame-Options</code> and
@@ -475,9 +473,10 @@
                 Some sites will not frame whatever we do: a page served from its
                 own service worker never hits the network, and a site whose own
                 headers forbid framing third parties blocks the preview from the
-                page you are standing on. Those fall back to the card below.
-              </li>
-            </ul>
+                  page you are standing on. Those fall back to the card below.
+                </li>
+              </ul>
+            </div>
           </div>
 
           <p class="hint">
@@ -493,7 +492,7 @@
       <section>
         <h2>
           Quick links
-          <em>Where a circle over empty space can take you. Up to eight.</em>
+          <em>Where a portal over empty space can take you (max 8)</em>
         </h2>
         <div class="body">
           <p class="cols" aria-hidden="true"><span>Address</span><span>Name</span></p>
@@ -543,7 +542,7 @@
         </div>
       </section>
 
-      <footer>SlingTab. Everything stays on this machine.</footer>
+      <footer>SlingTab. Sling through the web.</footer>
     </main>
 
     <script type="module" src="/options.ts"></script>

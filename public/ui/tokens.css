@@ -195,27 +195,65 @@ body.live .power {
 
 /* ----------------------------------------------------------------- panels */
 /*
- * Hairlines precede shadow, and no panel here carries one. Depth comes from a
+ * Hairlines precede shadow, and nothing here carries one. Depth comes from a
  * background shift and a 1px rim, which is also why nothing is nested.
+ *
+ * `.note` is a STATUS: it reports what just happened, so it keeps a coloured
+ * edge because the colour is the message. `.callout` is INFORMATION: it is
+ * always there and says the same thing every time, so it gets an icon and no
+ * colour at all. Marking permanent explanatory text with a warning stripe is
+ * how a page ends up shouting at the reader about nothing.
  */
-.note,
-.panel {
+.note {
   border: 1px solid var(--rim);
   border-left: 2px solid var(--rim);
   border-radius: 0 var(--r-box) var(--r-box) 0;
   background: var(--well);
   color: var(--mute);
 }
-.note.warn,
-.panel {
-  border-left-color: var(--coal);
-}
 .note.warn {
+  border-left-color: var(--coal);
   color: oklch(86% 0.05 68);
 }
 .note.ok {
   border-left-color: var(--ok);
   color: var(--ok-text);
+}
+
+/* --------------------------------------------------------------- callout */
+
+.callout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid var(--rim);
+  border-radius: var(--r-box);
+  background: var(--well);
+  color: var(--mute);
+}
+
+/*
+ * The information mark, drawn rather than fetched.
+ *
+ * A single glyph does not justify an icon library in a project with no runtime
+ * dependencies, and a hand-rolled SVG path is worse than the letter itself:
+ * this is literally a lowercase i in a ring, so that is what it is. Text also
+ * inherits the face and the optical weight of everything around it, which a
+ * traced path never does.
+ */
+.callout::before {
+  content: "i";
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid var(--dim);
+  border-radius: 50%;
+  font: 600 11px/1 var(--sans);
+  font-style: italic;
+  color: var(--mute);
+  flex: 0 0 auto;
 }
 
 /* ---------------------------------------------------------------- buttons */

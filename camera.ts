@@ -32,7 +32,7 @@ let tracker: VideoTracker | null = null;
 let firedTimer: ReturnType<typeof setTimeout> | null = null;
 
 function setStatus(kind: "ok" | "warn", text: string): void {
-  status.className = `status ${kind}`;
+  status.className = `note ${kind}`;
   status.textContent = text;
 }
 
@@ -119,10 +119,10 @@ async function startDiagnostics(): Promise<void> {
         .map((on, i) => (on ? FINGER_NAMES[i] : null))
         .filter(Boolean)
         .join(", ");
-      liveText.textContent = `hand seen — raise index + middle only (now: ${up || "fist"})`;
+      liveText.textContent = `hand seen. Raise index + middle only (now: ${up || "fist"})`;
     } else {
       const pct = Math.round((r.stroke?.progress ?? 0) * 100);
-      liveText.textContent = `pose held — circle ${pct}%`;
+      liveText.textContent = `pose held, circle ${pct}%`;
     }
 
     // The skeleton, in normalised coordinates scaled to the overlay.
@@ -188,7 +188,7 @@ async function startDiagnostics(): Promise<void> {
   if (!ok) {
     setStatus(
       "warn",
-      "The hand landmark model could not load, so SlingTab fell back to the much cruder skin-and-motion detector. Check the console on this page for the reason.",
+      "The hand model could not load, so SlingTab fell back to a much cruder detector. The console on this page says why.",
     );
     console.warn("SlingTab: hand model failed to load", tracker.tracker.loadError);
   }
@@ -208,7 +208,7 @@ ask.addEventListener("click", async () => {
     if (name === "NotAllowedError") {
       setStatus(
         "warn",
-        "Permission was declined. Open the padlock icon in the address bar of this tab, set Camera to Allow, then reload this page.",
+        "Permission declined. Open the padlock in the address bar, set Camera to Allow, then reload.",
       );
     } else if (name === "NotFoundError" || name === "OverconstrainedError") {
       setStatus("warn", "No camera was found on this device.");
@@ -226,7 +226,7 @@ ask.addEventListener("click", async () => {
   boxHint.classList.remove("hidden");
   setStatus(
     "ok",
-    "Camera enabled. Try the gesture below — when the badge lights up, the same thing will open a portal on any page.",
+    "Camera on. Try the gesture below.",
   );
   ask.classList.add("hidden");
   done.classList.remove("hidden");
