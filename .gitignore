@@ -37,3 +37,8 @@ secrets.json
 test-results/
 playwright-report/
 .playwright/
+
+# Internal development ledger. Kept locally, deliberately not published:
+# it is a working notebook (bug ledger, open items, tuning history), not
+# documentation for anyone cloning this repo.
+HANDOFF.md
