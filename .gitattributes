@@ -9,6 +9,7 @@
 *.task binary
 *.ttf binary
 *.png binary
+*.gif binary
 *.ico binary
 public/mediapipe/** linguist-vendored
 public/models/** linguist-vendored

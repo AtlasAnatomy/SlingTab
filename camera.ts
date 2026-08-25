@@ -127,7 +127,7 @@ async function startDiagnostics(): Promise<void> {
         .map((on, i) => (on ? FINGER_NAMES[i] : null))
         .filter(Boolean)
         .join(", ");
-      liveText.textContent = `hand seen. Raise index + middle only (now: ${up || "fist"})`;
+      liveText.textContent = `hand seen. Raise index + middle only`;
     } else {
       const pct = Math.round((r.stroke?.progress ?? 0) * 100);
       liveText.textContent = `pose held, circle ${pct}%`;
