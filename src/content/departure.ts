@@ -22,15 +22,13 @@ const T_OPEN = 180;
  * This remains only as a safety valve, so a portal cannot outlive the interest
  * of whoever opened it by an unbounded amount.
  */
-const T_HOLD_MAX = 60_000;
+const T_HOLD_MAX = 5 * 60_000;
 /** Commit = lens phase + dive phase. */
 const T_LENS = 260;
 const T_DIVE = 320;
 const T_COMMIT = T_LENS + T_DIVE;
 const T_FLARE = 120;
 const T_DISSIPATE = 380;
-/** Nothing to travel to and no quick links: there is nothing to wait for. */
-const NO_TARGET_LINGER = 4000;
 
 /**
  * When to show the framed destination, and when to give up on it.
@@ -180,9 +178,6 @@ export class Departure {
     window.addEventListener("pointerdown", this.onPointerDown, true);
     window.addEventListener("click", this.onClick, true);
     window.addEventListener("keydown", this.onKeyDown, true);
-    // Not capture: see the note in content/index.ts. With capture this fired on
-    // every element blur and tore the portal down instantly.
-    window.addEventListener("blur", this.onBlur);
     window.addEventListener("resize", this.onResize, true);
     window.addEventListener("pagehide", this.onPageHide, true);
 
@@ -238,15 +233,15 @@ export class Departure {
   private lockScroll(): void {
     if (this.scrollLocked) return;
     this.scrollLocked = true;
-    window.addEventListener("wheel", this.onWheel, { passive: false, capture: true });
-    window.addEventListener("touchmove", this.onWheel, { passive: false, capture: true });
+    window.addEventListener("wheel", this.blockScroll, { passive: false, capture: true });
+    window.addEventListener("touchmove", this.blockScroll, { passive: false, capture: true });
   }
 
   private unlockScroll(): void {
     if (!this.scrollLocked) return;
     this.scrollLocked = false;
-    window.removeEventListener("wheel", this.onWheel, true);
-    window.removeEventListener("touchmove", this.onWheel, true);
+    window.removeEventListener("wheel", this.blockScroll, true);
+    window.removeEventListener("touchmove", this.blockScroll, true);
   }
 
   private async depart(url: string): Promise<void> {
@@ -581,18 +576,14 @@ export class Departure {
   private onKeyDown = (): void => this.beginDissipate();
 
   /**
-   * Scrolling means "I am done looking at this".
+   * Scroll is BLOCKED while the portal is open, and does not dismiss it.
    *
-   * It also removes the one way a waiting portal could be a nuisance: the page
-   * snapshot behind the lens is frozen, so scroll has to be blocked while the
-   * portal is open, and a portal that waits forever would otherwise pin the page.
+   * The lens bends a frozen snapshot of the page, so letting it scroll
+   * underneath would desync the two instantly. Dismissing on scroll was the
+   * easy way out of that and it broke the rule above: the disc closed on
+   * something the user did not mean as "close".
    */
-  private onWheel = (e: Event): void => {
-    e.preventDefault();
-    this.beginDissipate();
-  };
-
-  private onBlur = (): void => this.beginDissipate();
+  private blockScroll = (e: Event): void => e.preventDefault();
 
   /**
    * Close it from outside — the content script calls this when a new circle is
@@ -687,11 +678,6 @@ export class Departure {
   private setPhase(p: Phase, now: number): void {
     this.phase = p;
     this.phaseStart = now;
-    if (p === "WAITING" && this.overlay) {
-      // Opaque from here on, in the destination's own colour, so the arrival
-      // animation on the next document starts from this exact frame.
-      this.overlay.veil.style.opacity = "1";
-    }
   }
 
   private beginCommit(): void {
@@ -823,11 +809,14 @@ export class Departure {
         lens = LENS_IDLE * (0.85 + 0.15 * Math.sin(elapsed / 620));
         swirl = 0.012;
         hole = radius;
-        if (!this.targetUrl && !this.chips.length && inPhase > NO_TARGET_LINGER) {
-          this.beginDissipate();
-        } else if (inPhase > T_HOLD_MAX && !this.hasCrossed) {
-          this.beginDissipate();
-        }
+        // The ONLY things that close this are a click outside the disc and a
+        // key. Not a blur, not a scroll, not a timer, and not "there was
+        // nothing to travel to" — a disc you did not ask to close should not
+        // close itself while you are looking at it.
+        //
+        // T_HOLD_MAX is a safety valve, not a policy: an rAF loop and a live
+        // iframe should not outlive the tab by an unbounded amount.
+        if (inPhase > T_HOLD_MAX && !this.hasCrossed) this.beginDissipate();
         // The rim never stops burning while it waits for the cursor.
         this.shed(dt, SPARK_TUNING.rateHold);
         break;
@@ -885,9 +874,12 @@ export class Departure {
          */
         open = 1;
         fade = 1;
-        hole = 0;
-        radius = 0;
         energy = 0;
+        // Hold the dive's final geometry. Collapsing the radius to 0 here would
+        // clip the framed destination away and expose the page we are leaving,
+        // one frame before the navigation replaces it.
+        radius = viewportR * 1.15;
+        hole = radius;
         break;
       }
 
@@ -928,11 +920,8 @@ export class Departure {
       // The composed preview stays on top of the frame until the frame is worth
       // seeing, then dissolves. Something correct is on screen the whole time,
       // so a slow destination costs nothing.
-      // Retired by the same wash as everything else, so the departure ends on a
-      // flat colour. The arrival animation opens from a full-screen fill of that
-      // colour; anything still drawn here would be a seam between the two.
-      showVision: cover * (1 - fade) > 0.001,
-      visionFade: cover * (1 - fade),
+      showVision: cover > 0.001,
+      visionFade: cover,
       lens: this.hasPage ? lens : 0,
       swirl,
       zoom,
@@ -948,31 +937,25 @@ export class Departure {
         // screen it was supposed to be swallowing.
         this.overlay.portal.style.clipPath =
           `circle(${(radius * open).toFixed(2)}px at ${this.cx.toFixed(1)}px ${this.cy.toFixed(1)}px)`;
-        // The portal layer sits ABOVE the veil, so the veil cannot cover it.
-        // It has to retire on the same curve or it survives the wash.
-        this.overlay.portal.style.opacity = fade < 0.001 ? "" : String(1 - fade);
+
       } else if (this.overlay.portal.style.clipPath) {
         this.overlay.portal.style.clipPath = "circle(0px at 50% 50%)";
       }
 
       /*
-       * The veil comes up WITH the dive, not after it.
+       * The veil is NEVER raised here.
        *
-       * `lens.frag` masks itself out wherever the hole has passed, so by the end
-       * of the dive the hole is larger than the viewport and the lens pass draws
-       * nothing at all. The real page was being exposed for those last frames,
-       * and then WAITING slammed the veil to opacity 1 in a single step. That
-       * snap is what read as the animation stuttering into the destination.
+       * It used to ramp to opaque across the last third of the dive so the
+       * departure could hand over to an arrival animation that opened from a
+       * flat colour. That animation is gone (bug 33), so all the wash did was
+       * put a black screen between the destination you could already see inside
+       * the disc and the same destination arriving for real — which is the
+       * "double blackout".
        *
-       * Driving it from `fade` means the flat colour arrives exactly as the lens
-       * vacates, and the departure ends on the same full-screen colour the
-       * arrival animation opens from.
+       * The dive expands the disc until it is the whole screen. Whatever is in
+       * it — the framed page, or the composed card — simply stays there while
+       * the navigation swaps the real document in underneath.
        */
-      if (this.phase === "COMMIT") this.overlay.veil.style.opacity = String(fade);
-
-      // Once it is fully transparent the frame is only costing compositor work,
-      // and there is a navigation about to happen that needs the headroom.
-      if (fade >= 0.999 && this.iframe) this.tearDownIframe();
 
       this.overlay.render(state, this.sparks);
     }
@@ -996,7 +979,6 @@ export class Departure {
     window.removeEventListener("pointerdown", this.onPointerDown, true);
     window.removeEventListener("click", this.onClick, true);
     window.removeEventListener("keydown", this.onKeyDown, true);
-    window.removeEventListener("blur", this.onBlur);
     window.removeEventListener("resize", this.onResize, true);
     window.removeEventListener("pagehide", this.onPageHide, true);
 

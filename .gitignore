@@ -23,3 +23,17 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local environment and credentials. None of these exist today; they are listed
+# so that the first one to appear cannot be committed by an absent-minded
+# `git add -A`.
+.env
+.env.*
+*.local
+secrets.json
+.chrome-profile/
+
+# Playwright / browser automation output.
+test-results/
+playwright-report/
+.playwright/
