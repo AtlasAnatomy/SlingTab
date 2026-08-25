@@ -37,33 +37,31 @@ const SIZES = [16, 32, 48, 128];
 /**
  * Fraction cropped from each edge before resampling.
  *
- * The logo is a rounded square whose ground reaches the canvas edge, so there
- * is no transparent margin to trim automatically — but there IS a band of flat
- * black between that edge and the amber ring. Measured on the 1254px master,
- * the ring's outer edge sits at x=51 on the centre row, so the band is 51/1254
- * of the width. Cropping it makes the ring 9% larger inside the same icon box,
- * which is the whole of what can be done about "the toolbar icon is too
- * small": Chrome fixes the slot at 16 logical pixels, so the only lever is how
- * much of those pixels the artwork occupies.
+ * ZERO, and it has to stay zero unless the artwork changes shape.
  *
- * The cost is the corner. The master is a rounded square with a 91px radius —
- * 7.3% of the side — and 51px in from the edge is already inside that arc, so
- * the crop squares the corners off. At 16px the rounding was one soft pixel and
- * is not missed; at 128 it is visible, and it is the price of a ring that
- * reaches the edge of the toolbar slot. `TRIM = 0` buys the corners back and
- * gives up the 9%.
+ * This was 51/1254 — the flat black band between the canvas edge and the amber
+ * ring on the master. Cropping it made the ring 9% larger inside the same icon
+ * box, which is the only lever there is on "the toolbar icon is too small",
+ * since Chrome fixes the slot at 16 logical pixels.
  *
- * It also lands well: 1254 - 2*51 = 1152, which is 72*16, 36*32, 24*48 and
- * 9*128. Every output pixel at every size is then the average of one whole
- * block of source pixels, with no bucket a row wider than its neighbour —
- * worth more at 16px than anywhere else, where one uneven bucket is a visibly
- * wrong pixel on a ring two pixels thick.
+ * It also squared off the corners, and that was the wrong trade. The master is
+ * a rounded square with a 91px radius — 7.3% of the side — so a 51px crop cuts
+ * well inside the arc and the icon lands as a hard-cornered black tile. At 128
+ * it is obvious; at 16 it is still the difference between a rounded badge and a
+ * black square. The rounding is part of the mark, not packaging around it.
  *
- * MEASURE IT AGAIN if the logo is replaced: this number is a property of one
- * particular file, and a stale one either leaves the band in or eats the ring.
- * Set it to 0 for artwork that is already tight to its edges.
+ * The crop had a second, quieter job: 1254 - 2*51 = 1152, which is 72*16,
+ * 36*32, 24*48 and 9*128, so every output pixel was the average of one whole
+ * block of source pixels with no bucket a row wider than its neighbour. At
+ * TRIM = 0 the ratios are 78.375, 39.1875, 26.125 and 9.797 — all uneven. That
+ * used to matter. It no longer does: `resize` weights partial source pixels by
+ * how much of them the output pixel actually covers, so an uneven bucket is
+ * averaged correctly instead of being rounded to a whole pixel too many.
+ *
+ * Set it non-zero only for artwork that is already tight to its edges AND has
+ * no rounded corner to lose, and measure the band again if the logo is replaced.
  */
-const TRIM = 51 / 1254;
+const TRIM = 0;
 
 // ------------------------------------------------------------ PNG encoding
 
@@ -206,12 +204,23 @@ function crop(src, w, h, fraction) {
 }
 
 /**
- * Box filter, in PREMULTIPLIED alpha.
+ * Area-average filter, in PREMULTIPLIED alpha.
  *
- * Averaging straight RGBA drags the colour of fully transparent pixels into the
- * result, so a logo on a transparent field picks up a dark halo everywhere its
- * edge is soft. Premultiplying first is the whole difference between a clean
- * 16px icon and a smudged one.
+ * Two things this has to get right.
+ *
+ * PREMULTIPLIED: averaging straight RGBA drags the colour of fully transparent
+ * pixels into the result, so a logo on a transparent field picks up a dark halo
+ * everywhere its edge is soft. Premultiplying first is the whole difference
+ * between a clean 16px icon and a smudged one.
+ *
+ * WEIGHTED: the output pixel covers the source span [x*sx, (x+1)*sx), and that
+ * span rarely lands on whole source pixels. Counting every touched pixel once
+ * (a plain box filter) gives some output pixels one source row more than their
+ * neighbours, which on a ring two pixels thick at 16px is a visibly wrong pixel.
+ * Each source pixel is therefore weighted by how much of it the output pixel
+ * actually covers, so the result no longer depends on the source size dividing
+ * evenly by the target — which is what let TRIM go to zero and the rounded
+ * corners come back.
  */
 function resize(src, sw, sh, d) {
   const out = new Uint8Array(d * d * 4);
@@ -219,31 +228,41 @@ function resize(src, sw, sh, d) {
   const sy = sh / d;
 
   for (let y = 0; y < d; y++) {
-    const y0 = Math.floor(y * sy);
-    const y1 = Math.max(y0 + 1, Math.floor((y + 1) * sy));
-    for (let x = 0; x < d; x++) {
-      const x0 = Math.floor(x * sx);
-      const x1 = Math.max(x0 + 1, Math.floor((x + 1) * sx));
+    const yStart = y * sy;
+    const yEnd = (y + 1) * sy;
+    const y0 = Math.floor(yStart);
+    const y1 = Math.min(sh, Math.ceil(yEnd));
 
-      let r = 0, g = 0, b = 0, a = 0, n = 0;
+    for (let x = 0; x < d; x++) {
+      const xStart = x * sx;
+      const xEnd = (x + 1) * sx;
+      const x0 = Math.floor(xStart);
+      const x1 = Math.min(sw, Math.ceil(xEnd));
+
+      let r = 0, g = 0, b = 0, a = 0, w = 0;
       for (let yy = y0; yy < y1; yy++) {
+        const wy = Math.min(yy + 1, yEnd) - Math.max(yy, yStart);
+        if (wy <= 0) continue;
         for (let xx = x0; xx < x1; xx++) {
+          const wx = Math.min(xx + 1, xEnd) - Math.max(xx, xStart);
+          if (wx <= 0) continue;
+          const weight = wx * wy;
           const i = (yy * sw + xx) * 4;
           const al = src[i + 3] / 255;
-          r += src[i] * al;
-          g += src[i + 1] * al;
-          b += src[i + 2] * al;
-          a += src[i + 3];
-          n++;
+          r += src[i] * al * weight;
+          g += src[i + 1] * al * weight;
+          b += src[i + 2] * al * weight;
+          a += src[i + 3] * weight;
+          w += weight;
         }
       }
 
       const o = (y * d + x) * 4;
-      const am = a / n;
+      const am = a / w;
       const un = am > 0 ? 255 / am : 0;
-      out[o] = Math.min(255, Math.round((r / n) * un));
-      out[o + 1] = Math.min(255, Math.round((g / n) * un));
-      out[o + 2] = Math.min(255, Math.round((b / n) * un));
+      out[o] = Math.min(255, Math.round((r / w) * un));
+      out[o + 1] = Math.min(255, Math.round((g / w) * un));
+      out[o + 2] = Math.min(255, Math.round((b / w) * un));
       out[o + 3] = Math.round(am);
     }
   }
