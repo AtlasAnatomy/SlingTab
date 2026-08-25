@@ -174,6 +174,22 @@ export function poseSatisfied(fingers: boolean[], pose: HandPose): boolean {
 const GLOG_LINE = /^([IWEF])\d{4} \d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+[\w./-]+:\d+\]/;
 
 /**
+ * TFLite's logger, which is not glog and does not look like it.
+ *
+ *     INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+ *
+ * The graph runner uses glog; the interpreter underneath it uses this. That
+ * line is emitted every time the CPU delegate is built — so on any machine
+ * taking the CPU path it is the most frequent line of the whole load, and
+ * having no glog prefix it fell through to `console.error` and was collected.
+ *
+ * Only the two informational levels are listed. `ERROR:` stays an error, and
+ * the prefix has to be exact: prose that merely opens with a capital W is not
+ * a warning, and an Emscripten abort is not to be demoted by accident.
+ */
+const TFLITE_LINE = /^(INFO|WARNING): /;
+
+/**
  * Demoted, not deleted: an INFO or WARNING from the runtime still reaches the
  * console, at the level DevTools hides behind Verbose and the extensions page
  * does not collect. Anything MediaPipe considers an actual error — a delegate
@@ -182,7 +198,7 @@ const GLOG_LINE = /^([IWEF])\d{4} \d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+[\w./-]+:\d+\]/
  */
 export function routeWasmLog(line: string): void {
   const level = GLOG_LINE.exec(line)?.[1];
-  if (level === "I" || level === "W") console.debug(line);
+  if (level === "I" || level === "W" || TFLITE_LINE.test(line)) console.debug(line);
   else console.error(line);
 }
 

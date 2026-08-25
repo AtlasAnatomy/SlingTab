@@ -46,6 +46,23 @@ describe("routeWasmLog", () => {
     expect(capture("F0825 08:07:19.100000 2196592 calculator.cc:9] Worse")).toBe("error");
   });
 
+  it("demotes TFLite's own logger, which does not use the glog prefix", () => {
+    // The CPU delegate is built by TFLite, not by the graph runner, and it
+    // announces itself through a different logger with a different shape. It is
+    // the single most common line in the whole load and it was landing in the
+    // extensions card as an error on every start.
+    expect(capture("INFO: Created TensorFlow Lite XNNPACK delegate for CPU.")).toBe(
+      "debug",
+    );
+    expect(capture("WARNING: Falling back to the reference implementation.")).toBe(
+      "debug",
+    );
+  });
+
+  it("keeps TFLite errors as errors", () => {
+    expect(capture("ERROR: Could not open model.")).toBe("error");
+  });
+
   it("keeps anything that is not a glog line as an error", () => {
     // Emscripten aborts, uncaught C++ exceptions, our own messages: none of
     // these carry the prefix, and none of them may be quietly demoted.
