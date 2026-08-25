@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { routeWasmLog } from "../src/shared/handtrack";
+import { makeWasmLogSink, routeWasmLog } from "../src/shared/handtrack";
 
 /**
  * MediaPipe's WASM runtime writes glog lines to stderr, and Emscripten binds
@@ -52,5 +52,71 @@ describe("routeWasmLog", () => {
     expect(capture("Aborted(OOM)")).toBe("error");
     expect(capture("W is for warning, but this is prose")).toBe("error");
     expect(capture("")).toBe("error");
+  });
+});
+
+/**
+ * The GPU attempt is a probe, not a load.
+ *
+ * `load()` builds the landmarker on the GPU delegate first and retries on CPU
+ * when that throws, because an offscreen document is not rendered and some
+ * drivers refuse it there. On those machines the refusal is not an anomaly —
+ * it is the normal path, every single start, and MediaPipe announces it on
+ * stderr at ERROR level:
+ *
+ *     E0825 10:14:04.401999 … StartGraph failed: NOT_FOUND: Unable to open
+ *     file at /model.dat; Initialize was not ok
+ *
+ * The JS-level throw from that same attempt is already treated as expected.
+ * The runtime's stderr from it was not, so every start deposited an error in
+ * the extensions card and they piled up across worker restarts.
+ *
+ * So the probe's output is demoted wholesale, and only for as long as the probe
+ * is running. Emscripten reads `printErr` once and keeps it for the life of the
+ * instance, so a GPU attempt that SUCCEEDS must not leave a permanently muted
+ * runtime behind — `settle()` is what puts the level rule back.
+ */
+describe("makeWasmLogSink", () => {
+  function sink(speculative: boolean) {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const s = makeWasmLogSink(speculative);
+    return {
+      ...s,
+      route(line: string): "debug" | "error" {
+        debug.mockClear();
+        error.mockClear();
+        s.printErr(line);
+        return error.mock.calls.length === 0 ? "debug" : "error";
+      },
+    };
+  }
+
+  const START_GRAPH_FAILED =
+    "E0825 10:14:04.401999 2196592 gl_graph_runner_internal.cc:255] StartGraph failed: " +
+    "NOT_FOUND: Unable to open file at /model.dat; Initialize was not ok";
+
+  it("swallows the probe's failure while the probe is in flight", () => {
+    const s = sink(true);
+    expect(s.route(START_GRAPH_FAILED)).toBe("debug");
+    expect(s.route("Aborted(OOM)")).toBe("debug");
+  });
+
+  it("restores the level rule once the probe has settled", () => {
+    const s = sink(true);
+    s.settle();
+    expect(s.route(START_GRAPH_FAILED)).toBe("error");
+    expect(s.route("W0825 10:14:04.388000 2196592 gl_context.cc:1119] disabled")).toBe(
+      "debug",
+    );
+  });
+
+  it("never swallows anything on a non-speculative build", () => {
+    // The CPU retry is the real load. If THAT cannot open the model, the user
+    // has no hand tracking and the error has to survive.
+    const s = sink(false);
+    expect(s.route(START_GRAPH_FAILED)).toBe("error");
+    s.settle();
+    expect(s.route(START_GRAPH_FAILED)).toBe("error");
   });
 });

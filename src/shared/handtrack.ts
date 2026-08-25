@@ -187,22 +187,67 @@ export function routeWasmLog(line: string): void {
 }
 
 /**
+ * The stderr sink for one construction, and the handle that ends its grace period.
+ *
+ * `speculative` marks a build whose failure is already handled — the GPU probe
+ * in `load()`, which is retried on CPU. On a machine whose driver refuses the
+ * delegate in an unrendered offscreen document, that refusal happens on EVERY
+ * start and MediaPipe reports it at ERROR level:
+ *
+ *     E0825 10:14:04.401999 … gl_graph_runner_internal.cc:255] StartGraph
+ *     failed: NOT_FOUND: Unable to open file at /model.dat
+ *
+ * Routing that by level alone puts a fresh error in the extension's card every
+ * time the tracker starts, and they accumulate across worker restarts until the
+ * list is nothing but this one expected line. So while the probe is in flight
+ * its output is demoted wholesale — level rule included, because the failure
+ * arrives as an `E` and an Emscripten abort would arrive with no prefix at all.
+ *
+ * `settle()` is not optional. Emscripten reads `printErr` once and keeps it for
+ * the life of the instance, so a probe that SUCCEEDS would otherwise leave a
+ * permanently muted runtime behind — every later error from the landmarker that
+ * is actually doing the work, swallowed. The grace period covers the attempt,
+ * not the instance.
+ */
+export function makeWasmLogSink(speculative: boolean): {
+  printErr: (line: string) => void;
+  settle: () => void;
+} {
+  let building = speculative;
+  return {
+    printErr: (line: string) => {
+      if (building) console.debug(line);
+      else routeWasmLog(line);
+    },
+    settle: () => {
+      building = false;
+    },
+  };
+}
+
+/**
  * Run one MediaPipe construction with its stderr routed through `routeWasmLog`.
  *
  * `tasks-vision` hands `self.Module` to the Emscripten factory and then clears
  * it, so the global is only borrowed for this call; the routing it hands over
  * lives on inside the instance. The `finally` covers the throw before it gets
  * that far — a GPU attempt a driver refuses is a normal path here, not an
- * exceptional one.
+ * exceptional one — and settles the sink either way, so the demotion never
+ * outlives the attempt that earned it.
  */
-async function withQuietRuntime<T>(build: () => Promise<T>): Promise<T> {
+async function withQuietRuntime<T>(
+  build: () => Promise<T>,
+  speculative = false,
+): Promise<T> {
   const scope = globalThis as { Module?: unknown };
   const had = "Module" in scope;
   const previous = scope.Module;
-  scope.Module = { printErr: routeWasmLog };
+  const sink = makeWasmLogSink(speculative);
+  scope.Module = { printErr: sink.printErr };
   try {
     return await build();
   } finally {
+    sink.settle();
     if (had) scope.Module = previous;
     else delete scope.Module;
   }
@@ -260,6 +305,9 @@ export class HandTracker {
     baseUrl: string,
     delegate: "GPU" | "CPU",
   ): Promise<HandLandmarker> {
+    // The GPU pass is a probe: `load()` retries on CPU, so its stderr is noise
+    // on any machine that refuses the delegate. The CPU pass is the real load
+    // and keeps every error it reports.
     return withQuietRuntime(async () => {
       const fileset = await FilesetResolver.forVisionTasks(`${baseUrl}mediapipe`);
       return HandLandmarker.createFromOptions(fileset, {
@@ -273,7 +321,7 @@ export class HandTracker {
         minHandPresenceConfidence: HAND_TUNING.minConfidence,
         minTrackingConfidence: HAND_TUNING.minConfidence,
       });
-    });
+    }, delegate === "GPU");
   }
 
   async load(baseUrl: string): Promise<boolean> {
