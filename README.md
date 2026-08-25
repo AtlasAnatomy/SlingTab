@@ -52,7 +52,7 @@ A rim of embers lights along the path you traced, and the page opens inside the 
 | **12 000 instanced sparks** | Ribbons along an analytically reconstructed parabolic path, `p(-τ) = p − v·τ + ½gτ²`, so no per-particle history is ever stored. 576k verts per frame. |
 | **Nothing leaves the machine** | Webcam frames are read and discarded. MediaPipe's telemetry endpoint is severed at build time, and **the build fails** if it ever stops being found. |
 | **A live tuner** | `npm run tune` loops the whole timeline against the *same* renderer and shaders the extension ships, with HMR on the GLSL. |
-| **162 tests, zero runtime deps** | The recogniser, the hand mapping, the filter, the header parsing and the shaders are all unit-tested. Nothing ships at runtime except the bundled hand model. |
+| **178 tests, zero runtime deps** | The recogniser, the hand mapping, the filter, the header parsing and the shaders are all unit-tested. Nothing ships at runtime except the bundled hand model. |
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
@@ -77,7 +77,7 @@ npm run build          # tsc --noEmit && vite build  ->  dist/
 ```
 
 ```sh
-npm test               # optional - 162 unit tests
+npm test               # optional - 178 unit tests
 ```
 
 > [!NOTE]
@@ -285,7 +285,7 @@ npm test          # vitest run
 npm run typecheck # tsc --noEmit
 ```
 
-**162 tests across 12 files**, all of them pure. No browser, camera or GPU required.
+**178 tests across 14 files**, all of them pure. No browser, camera or GPU required.
 
 | Suite | Covers |
 |---|---|
@@ -296,6 +296,9 @@ npm run typecheck # tsc --noEmit
 | `settings.test.ts` | `patchSettings` leaves untouched fields alone and **never silently disables the extension**, schema migration, pre-rename keys read and moved once. |
 | `shaders.test.ts` | Uniform names cross-checked against `gl.ts` *parsed from the source*, so the test cannot go stale. No `pow()` on a base that can go negative, no clamped-argument Gaussian. |
 | `glsl-syntax.test.ts` | All six shaders parsed with a real GLSL parser in Node. Every called function is builtin or locally defined. |
+| `dnr.test.ts` | What mode A actually takes off the wire. The rule is always armed; only how much it removes varies, and that is what is pinned. |
+| `icons.test.ts` | Every shipped `icon-{n}.png` really is an `n × n` 8-bit RGBA PNG, so a broken encoder cannot reach the manifest. |
+| `licenses.test.ts` | `THIRD-PARTY.txt` names every redistributed component and carries the full Apache-2.0 text rather than a link to it. |
 | `handpose.test.ts` · `handpreview.test.ts` · `wasmlog.test.ts` · `linkimport.test.ts` | The two-finger gate, particle budget headroom, WASM log routing, and the quick-link import parser. |
 
 **Not covered:** GLSL type errors and driver behaviour, which need a real compile; the webcam path end to end, which needs a camera; and the manual acceptance matrix.
@@ -366,7 +369,7 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
 <!-- SHIELDS -->
-[tests-shield]: https://img.shields.io/badge/tests-162%20passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white
+[tests-shield]: https://img.shields.io/badge/tests-178%20passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white
 [tests-url]: #testing
 [ts-shield]: https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white
 [ts-url]: https://www.typescriptlang.org/
