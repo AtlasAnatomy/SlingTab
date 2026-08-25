@@ -6,7 +6,7 @@
 
 # SlingTab
 
-### Punch a hole through the web.
+### Sling through the web.
 
 **Draw a circle around a link — with the mouse, or with your bare hand in the air — and the page tears open inside the disc.**
 
@@ -47,7 +47,7 @@ That is the entire product. Everything below is what it takes to make it feel th
 ### Key Features
 
 |   | |
-|---|---|
+
 | **Mouse *and* hand** | Right-button drag, an Alt-held trackpad stroke, or two raised fingers in front of your webcam. All three feed the **same pure recogniser**. |
 | **A real gravitational lens** | Four WebGL2 passes — lens, vision, ring, sparks — over a `captureVisibleTab` snapshot. Graceful Canvas2D fallback when shaders will not compile. |
 | **The destination, live** | The disc frames the real page where framing is allowed, and can strip `X-Frame-Options` for one sub-frame request in one tab. Otherwise it composes a 512×512 card from favicon, hostname, title and theme colour. |
