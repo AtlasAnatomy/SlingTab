@@ -1,0 +1,7 @@
+title: SlingTab
+description: Privacy policy
+theme: jekyll-theme-cayman
+
+# One page. Nothing here needs a blog, a feed, or a sitemap of one URL.
+exclude:
+  - README.md

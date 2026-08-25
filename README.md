@@ -248,7 +248,7 @@ Root causes worth writing down, so nobody reintroduces them.
 
 ## Privacy & Security
 
-Everything runs on your machine, and nothing is uploaded.
+Everything runs on your machine, and nothing is uploaded. The full policy, including exactly what the framing rule removes and for how long, is at **[the privacy policy][privacy-url]**.
 
 - **The webcam is processed locally.** Frames are read and discarded, never recorded, uploaded or stored. The camera runs only while the hand trigger is selected, and the model is bundled, so it works offline.
 - **MediaPipe's telemetry is severed at build time.** The library batches usage events and POSTs them to a Google logging endpoint every 60 seconds. A Vite plugin rewrites that URL to a path that 404s, and **the build fails if the endpoint is not found**, so a dependency upgrade cannot quietly reintroduce it. Verify with `npm run build && grep -r "odml.pa.googleapis" dist/`.
@@ -391,6 +391,7 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 
 <!-- LINKS -->
 [issues-url]: https://github.com/AtlasAnatomy/SlingTab/issues
+[privacy-url]: https://atlasanatomy.github.io/SlingTab/
 [mediapipe-url]: https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker
 [vite-url]: https://vitejs.dev/
 [crxjs-url]: https://crxjs.dev/vite-plugin
