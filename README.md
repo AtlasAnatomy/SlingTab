@@ -363,14 +363,14 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 
 ## Acknowledgments
 
-- [MediaPipe Tasks Vision][mediapipe-url] — the hand landmarker, bundled locally and running offline
-- [Vite][vite-url] — the build
-- [@crxjs/vite-plugin][crxjs-url] — MV3 manifest generation and HMR
-- [Vitest][vitest-url] — the test runner
-- [@shaderfrog/glsl-parser][glslparser-url] — real GLSL parsing in Node, so shader syntax is a unit test
-- [The One Euro Filter][onefilter-url] — Casiez, Roussel & Vogel, CHI 2012
-- [Alumni Sans][alumni-url] and [Albert Sans][albert-url] — self-hosted, OFL
-- [Best-README-Template][template-url] — the scaffold this document is built on
+- [MediaPipe Tasks Vision][mediapipe-url] | the hand landmarker, bundled locally and running offline
+- [Vite][vite-url] | the build
+- [@crxjs/vite-plugin][crxjs-url] | MV3 manifest generation and HMR
+- [Vitest][vitest-url] | the test runner
+- [@shaderfrog/glsl-parser][glslparser-url] | real GLSL parsing in Node, so shader syntax is a unit test
+- [The One Euro Filter][onefilter-url] | Casiez, Roussel & Vogel, CHI 2012
+- [Alumni Sans][alumni-url] and [Albert Sans][albert-url] | self-hosted, OFL
+- [Best-README-Template][template-url] | the scaffold this document is built on
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
