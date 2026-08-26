@@ -40,7 +40,7 @@ Ever wonder what it's like to open a portal between two web pages?
 
 Draw a circle around a link with your mouse, or make the gesture in the air using hand tracking. A glowing ring appears along the path. Inside it, the destination page starts rendering immediately. Outside it, the current page distorts like light bending near a strong gravitational field. The ring expands until it covers the viewport. At that point, the browser takes over navigation. No blank tab, or loading spinner.
 
-<span style="color: #FFD700;">SlingTab is a Chrome MV3 extension built with TypeScript, WebGL2, and a MediaPipe hand-tracking model that runs entirely on-device.</span> It renders a gravitational lens over a captured frame of the page you're leaving, draws the destination inside the portal, and hands off to the browser's real navigation at the exact moment the portal and the page become indistinguishable.
+**SlingTab is a Chrome MV3 extension built with TypeScript, WebGL2, and a MediaPipe hand-tracking model that runs entirely on-device.** It renders a gravitational lens over a captured frame of the page you're leaving, draws the destination inside the portal, and hands off to the browser's real navigation at the exact moment the portal and the page become indistinguishable.
 
 ### Key features
 
@@ -65,7 +65,7 @@ Draw a circle around a link with your mouse, or make the gesture in the air usin
 - **Node.js**, current LTS, and the npm that ships with it
 - **Chrome 120 or newer** (`minimum_chrome_version` in the manifest)
 
-A webcam is optional. You need one only for the hand trigger.
+A webcam is optional, you need one only for the hand trigger.
 
 ### Installation
 
@@ -105,7 +105,7 @@ That is it. Open any page and draw.
 | Trigger | How | Notes |
 |---|---|---|
 | **Right mouse button** *(default)* | Hold it and draw a circle around a link. | A right-click that does not become a circle still opens the context menu. |
-| **Hold `Alt`** | No buttons at all. Just move and draw. | The better option on a trackpad. |
+| **Hold `Alt`** | No buttons at all, just move and draw. | The better option on a trackpad. |
 | **Hand in the air** | Raise index and middle finger, fold ring and pinky, draw a circle at the webcam. | Needs camera permission once. |
 
 Pick the trigger in the toolbar popup, or on the full settings page.
@@ -140,15 +140,21 @@ The tuner loops the entire departure timeline against the **same `GLRenderer`, t
 
 > Do **not** tune by editing constants and reloading the unpacked extension.
 
+<div align="center">
+
+[![The tuner overlay with live sliders adjusting portal parameters, particles, and ring appearance over the rendered scene][tuner-gif]][tuner-gif]
+
+</div>
+
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
 ---
 
 ## Under The Hood
 
-### The departure
+### Initialization
 
-A gesture fires, and the rest runs in this order.
+A gesture fires, and the rest runs in this order:
 
 1. **The page is captured first, before any overlay exists.** Capture it after the ring is on screen and the lens bends a page with the ring already baked into it, which shows up as a ghost ring under the real one.
 2. **The target is resolved.** `elementsFromPoint` finds the nearest `<a href>`. Hand mode also searches a spiral inside the portal, because a hand in the air lands only roughly where you mean.
@@ -248,7 +254,7 @@ Root causes worth writing down, so nobody reintroduces them.
 
 ## Privacy & Security
 
-Everything runs on your machine, and nothing is uploaded. The full policy, including exactly what the framing rule removes and for how long, is at **[the privacy policy][privacy-url]**.
+Everything runs on your machine, and nothing is uploaded. The full policy, including exactly what the framing rule removes and for how long, is at the **[privacy policy][privacy-url]**.
 
 - **The webcam is processed locally.** Frames are read and discarded, never recorded, uploaded or stored. The camera runs only while the hand trigger is selected, and the model is bundled, so it works offline.
 - **MediaPipe's telemetry is severed at build time.** The library batches usage events and POSTs them to a Google logging endpoint every 60 seconds. A Vite plugin rewrites that URL to a path that 404s, and **the build fails if the endpoint is not found**, so a dependency upgrade cannot quietly reintroduce it. Verify with `npm run build && grep -r "odml.pa.googleapis" dist/`.
@@ -387,11 +393,12 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 <!-- MEDIA -->
 [hero-gif]: assets/hero_gif.gif
 [hand-gif]: assets/hand_gesture.gif
+[tuner-gif]: assets/Tuner.gif
 [options-png]: assets/UI_Tuner.png
 
 <!-- LINKS -->
 [issues-url]: https://github.com/AtlasAnatomy/SlingTab/issues
-[privacy-url]: https://atlasanatomy.github.io/SlingTab/
+[privacy-url]: https://github.com/AtlasAnatomy/SlingTab/blob/main/docs/index.md
 [mediapipe-url]: https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker
 [vite-url]: https://vitejs.dev/
 [crxjs-url]: https://crxjs.dev/vite-plugin
