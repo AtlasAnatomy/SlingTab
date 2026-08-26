@@ -8,7 +8,7 @@
 
 ### Sling through the web.
 
-**Draw a circle around a link, with the mouse or with your bare hand in the air, and a portal opens where you drew it.**
+**Trace a circle around any link with your mouse, or draw it in the air with hand tracking. A portal opens exactly where you traced it. Sling ring not included.**
 
 [![Tests][tests-shield]][tests-url]
 [![TypeScript][ts-shield]][ts-url]
@@ -36,11 +36,11 @@
 
 ## About The Project
 
-You are reading an article. A link catches your eye. Instead of clicking it, you circle it.
+Ever wonder what it's like to open a portal between two web pages?
 
-A rim of embers lights along the path you traced, and the page opens inside the ring. The destination is already showing through the portal, live, while the page around it bends inward like light around a mass. The well deepens, the portal grows past the corners of the screen, and the real navigation completes underneath it. You never see a blank tab.
+Draw a circle around a link with your mouse, or make the gesture in the air using hand tracking. A glowing ring appears along the path. Inside it, the destination page starts rendering immediately. Outside it, the current page distorts like light bending near a strong gravitational field. The ring expands until it covers the viewport. At that point, the browser takes over navigation. No blank tab, or loading spinner.
 
-**SlingTab is a Chrome MV3 extension built with TypeScript, WebGL2, and a MediaPipe hand-tracking model that runs locally.** It renders a gravitational lens over a captured frame of the page you are standing on, draws the destination inside the portal, and hands over to the browser's own navigation at the moment the two look the same.
+<span style="color: #FFD700;">SlingTab is a Chrome MV3 extension built with TypeScript, WebGL2, and a MediaPipe hand-tracking model that runs entirely on-device.</span> It renders a gravitational lens over a captured frame of the page you're leaving, draws the destination inside the portal, and hands off to the browser's real navigation at the exact moment the portal and the page become indistinguishable.
 
 ### Key features
 
