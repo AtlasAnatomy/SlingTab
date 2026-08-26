@@ -315,16 +315,10 @@ npm run typecheck # tsc --noEmit
 
 ## Roadmap
 
-- [x] Rebuild the popup and options pages on one shared token system
-- [x] Bring `camera.html` onto the same visual language
-- [x] Sever MediaPipe's telemetry at build time, with a failing build as the guard
-- [x] Route WASM log chatter away from the extension's error list
-- [ ] **Walk the manual acceptance matrix in a real browser:** framing behaviour on popular sites, service-worker kill, `* { all: unset }` pages, the PDF viewer, `chrome://` inertness, session rules empty after 20 gestures
-- [ ] Tune the lens constants (`LENS_PEAK`, `SWIRL_PEAK`, `DIVE_ZOOM`) by eye. They are reasoned, not measured
-- [ ] Fine-tune the One Euro parameters and the active-box coverage against a real webcam
+- [ ] Tune the lens constants (`LENS_PEAK`, `SWIRL_PEAK`, `DIVE_ZOOM`) and the One Euro parameters against a real webcam. They are reasoned, not measured
+- [ ] Make sparks readable on light pages — they blend additively and cannot darken, so the ring reads as a white-out
 - [ ] A per-host skip list for sites that render a login wall when framed
-- [ ] Make sparks readable on light pages. They blend additively and cannot darken, so the ring reads as a white-out
-- [ ] A first-run onboarding flow
+- [ ] **A Firefox build** — a port, not a repackage. `chrome.offscreen` does not exist there, so the webcam trigger needs a new home; the service worker becomes an event page; `_favicon/` has no equivalent; and the header rules need re-checking against Firefox's narrower `declarativeNetRequest`
 
 See the [open issues][issues-url] for the full list.
 
