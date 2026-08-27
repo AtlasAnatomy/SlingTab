@@ -52,7 +52,7 @@ Draw a circle around a link with your mouse, or make the gesture in the air usin
 | **12 000 instanced sparks** | Ribbons along an analytically reconstructed parabolic path, `p(-τ) = p − v·τ + ½gτ²`, so no per-particle history is ever stored. 576k verts per frame. |
 | **Nothing leaves the machine** | Webcam frames are read and discarded. MediaPipe's telemetry endpoint is severed at build time, and **the build fails** if it ever stops being found. |
 | **A live tuner** | `npm run tune` loops the whole timeline against the *same* renderer and shaders the extension ships, with HMR on the GLSL. |
-| **178 tests, zero runtime deps** | The recogniser, the hand mapping, the filter, the header parsing and the shaders are all unit-tested. Nothing ships at runtime except the bundled hand model. |
+| **221 tests, zero runtime deps** | The recogniser, the hand mapping, the filter, the header parsing and the shaders are all unit-tested. Nothing ships at runtime except the bundled hand model. |
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
@@ -77,7 +77,7 @@ npm run build          # tsc --noEmit && vite build  ->  dist/
 ```
 
 ```sh
-npm test               # optional - 178 unit tests
+npm test               # optional - 221 unit tests
 ```
 
 > [!NOTE]
@@ -291,7 +291,7 @@ npm test          # vitest run
 npm run typecheck # tsc --noEmit
 ```
 
-**178 tests across 14 files**, all of them pure. No browser, camera or GPU required.
+**221 tests across 17 files**, all of them pure. No browser, camera or GPU required.
 
 | Suite | Covers |
 |---|---|
@@ -369,7 +369,7 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
 <!-- SHIELDS -->
-[tests-shield]: https://img.shields.io/badge/tests-178%20passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white
+[tests-shield]: https://img.shields.io/badge/tests-221%20passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white
 [tests-url]: #testing
 [ts-shield]: https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white
 [ts-url]: https://www.typescriptlang.org/

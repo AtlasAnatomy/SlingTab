@@ -44,10 +44,60 @@ export const GESTURE_TUNING = {
   maxRadiusFrac: 0.45,
   /** Radial jitter tolerance. Rejects scribbles and lassos. */
   maxRadiusCv: 0.3,
+  /**
+   * Largest angular step, about the centroid, between two consecutive samples.
+   *
+   * A stroke is sampled far above the rate at which it turns: a hand at 25 Hz
+   * drawing 1.85 turns in 30 frames moves 22 degrees a frame, and a mouse at
+   * 120 Hz moves far less. A step approaching 180 degrees is not a fast circle,
+   * it is aliasing — and it is how a zigzag reads as a gesture. Points that
+   * alternate either side of the centroid jump close to 180 degrees each time,
+   * which accumulates as apparent rotation while the radii stay uniform enough
+   * to pass the roundness test.
+   *
+   * 90 degrees is four times the fastest real hand stroke, so it rejects the
+   * degenerate case without coming near a genuine one.
+   */
+  maxStepTurn: Math.PI / 2,
   minPathLengthPx: 150,
   /** Buffer self-resets this long after the last sample. */
   idleResetMs: 300,
 } as const;
+
+/**
+ * How long a stroke may take, per input device.
+ *
+ * `maxAgeMs` is not a detail: samples older than it are dropped from the head
+ * of the buffer, so it IS the time budget for drawing a whole circle. And
+ * because the arc drawn back to the user is measured from the same buffer, a
+ * stroke that outruns the budget does not merely fail to fire — it visibly
+ * un-draws itself from the start while the user is still making it.
+ *
+ * A mouse samples at 60-120 Hz, so 1200 ms is over a hundred points and the
+ * budget never binds; it binds on the hand, which samples at 25 Hz. Thirty
+ * frames to cover 1.75 turns forced a fast, sharp movement, and moving a hand
+ * in the air fast enough to satisfy it is exactly what made the gesture hard to
+ * close.
+ *
+ * `idleResetMs` must stay above the tracker's disarm time (9 frames at 40 ms =
+ * 360 ms) so that dropping the pose, not a momentary landmark flicker, is what
+ * clears a stroke.
+ */
+export interface BufferWindow {
+  maxAgeMs: number;
+  idleResetMs: number;
+}
+
+/** The original numbers, still the single source of truth for the mouse. */
+export const MOUSE_WINDOW: BufferWindow = {
+  maxAgeMs: GESTURE_TUNING.maxAgeMs,
+  idleResetMs: GESTURE_TUNING.idleResetMs,
+};
+
+export const HAND_WINDOW: BufferWindow = {
+  maxAgeMs: 3000,
+  idleResetMs: 700,
+};
 
 const TAU = Math.PI * 2;
 
@@ -64,6 +114,8 @@ export interface GestureMetrics {
   centerX: number;
   centerY: number;
   totalTurn: number;
+  /** Largest single-step angular jump about the centroid, radians. */
+  maxStepTurn: number;
   radiusMean: number;
   radiusStd: number;
   pathLength: number;
@@ -89,6 +141,7 @@ export function measure(points: readonly Sample[]): GestureMetrics | null {
   const startAngle = prevTheta;
 
   let totalTurn = 0;
+  let maxStepTurn = 0;
   let pathLength = 0;
   let rSum = 0;
   let rSqSum = 0;
@@ -104,7 +157,9 @@ export function measure(points: readonly Sample[]): GestureMetrics | null {
     const q = points[i - 1]!;
 
     const theta = Math.atan2(p.y - cy, p.x - cx);
-    totalTurn += unwrap(theta - prevTheta);
+    const step = unwrap(theta - prevTheta);
+    totalTurn += step;
+    maxStepTurn = Math.max(maxStepTurn, Math.abs(step));
     prevTheta = theta;
 
     pathLength += Math.hypot(p.x - q.x, p.y - q.y);
@@ -122,6 +177,7 @@ export function measure(points: readonly Sample[]): GestureMetrics | null {
     centerX: cx,
     centerY: cy,
     totalTurn,
+    maxStepTurn,
     radiusMean,
     radiusStd: Math.sqrt(variance),
     pathLength,
@@ -143,6 +199,8 @@ export function recognizeCircle(
   if (!m) return null;
 
   if (Math.abs(m.totalTurn) < GESTURE_TUNING.minTurn) return null;
+  // Before trusting totalTurn at all: a step near PI is aliasing, not rotation.
+  if (m.maxStepTurn > GESTURE_TUNING.maxStepTurn) return null;
   if (m.pathLength < GESTURE_TUNING.minPathLengthPx) return null;
   if (m.radiusMean < GESTURE_TUNING.minRadiusPx) return null;
 
@@ -168,6 +226,12 @@ export function recognizeCircle(
 export class GestureBuffer {
   private points: Sample[] = [];
 
+  /**
+   * Defaults to the mouse budget, so every existing caller and every test that
+   * constructs a bare buffer behaves exactly as it did.
+   */
+  constructor(private window: BufferWindow = MOUSE_WINDOW) {}
+
   get length(): number {
     return this.points.length;
   }
@@ -186,16 +250,14 @@ export class GestureBuffer {
 
   /** True when the buffer has gone quiet long enough that it should reset. */
   isStale(now: number): boolean {
-    return (
-      this.points.length > 0 && now - this.lastTime > GESTURE_TUNING.idleResetMs
-    );
+    return this.points.length > 0 && now - this.lastTime > this.window.idleResetMs;
   }
 
   push(sample: Sample): void {
     if (this.isStale(sample.t)) this.clear();
     this.points.push(sample);
 
-    const cutoff = sample.t - GESTURE_TUNING.maxAgeMs;
+    const cutoff = sample.t - this.window.maxAgeMs;
     let drop = 0;
     while (drop < this.points.length && this.points[drop]!.t < cutoff) drop++;
     const overflow = this.points.length - drop - GESTURE_TUNING.maxPoints;
@@ -286,8 +348,26 @@ export function trimLeadIn(points: readonly Sample[]): readonly Sample[] {
   return cut === 0 ? points : points.slice(cut);
 }
 
-/** What the content script calls: lead-in tolerant recognition. */
-export function recognize(
+/**
+ * How many progressively shorter tails to try before giving up.
+ *
+ * `trimLeadIn` alone was enough while the buffer was 1200 ms long, because at
+ * that length the buffer WAS the circle: anything older had already been
+ * dropped, and the only lead-in left to remove was the short run-out from the
+ * centre that trimLeadIn was written for. It is not enough at the hand's 3000 ms,
+ * where the buffer also holds the second or two of hovering and drifting before
+ * the user began to draw. trimLeadIn cannot reach that: it removes at most a
+ * third of the buffer, and only points that sit INSIDE the ring, while a hand
+ * waiting to start is usually outside it.
+ *
+ * Six is enough to bracket a lead-in of any length from a tenth of the buffer
+ * to six sevenths of it, and cheap: the tails shrink, so the whole scan costs
+ * about four times a single measure of the buffer.
+ */
+const TAIL_ATTEMPTS = 6;
+
+/** One window, with and without its own lead-in removed. */
+function recognizeWindow(
   points: readonly Sample[],
   viewport: Viewport,
 ): GestureResult | null {
@@ -295,6 +375,34 @@ export function recognize(
   if (direct) return direct;
   const trimmed = trimLeadIn(points);
   return trimmed === points ? null : recognizeCircle(trimmed, viewport);
+}
+
+/**
+ * What the content script calls: lead-in tolerant recognition.
+ *
+ * A circle is always the NEWEST contiguous run of samples — whatever came
+ * before it is approach, hesitation, or a previous idea. So when the buffer as
+ * a whole is not a circle, ask again of progressively shorter tails of it.
+ *
+ * The longest tail that passes wins, so the answer keeps as much of the real
+ * stroke as it can and the centre and radius come from the whole circle rather
+ * than an arc of it.
+ */
+export function recognize(
+  points: readonly Sample[],
+  viewport: Viewport,
+): GestureResult | null {
+  const whole = recognizeWindow(points, viewport);
+  if (whole) return whole;
+
+  const n = points.length;
+  for (let i = 1; i <= TAIL_ATTEMPTS; i++) {
+    const start = Math.round((n * i) / (TAIL_ATTEMPTS + 1));
+    if (n - start < GESTURE_TUNING.minPoints) break;
+    const hit = recognizeWindow(points.slice(start), viewport);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 export interface GestureCheck {
@@ -356,6 +464,11 @@ export function explain(
       ok: !!m && m.radiusMean <= maxRadius,
       value: m?.radiusMean ?? 0,
       need: `<= ${maxRadius.toFixed(0)} px`,
+    },
+    smoothness: {
+      ok: !!m && m.maxStepTurn <= GESTURE_TUNING.maxStepTurn,
+      value: m?.maxStepTurn ?? 0,
+      need: `<= ${GESTURE_TUNING.maxStepTurn.toFixed(2)} rad per sample`,
     },
     roundness: {
       ok: !!m && m.radiusMean > 0 && m.radiusStd / m.radiusMean < GESTURE_TUNING.maxRadiusCv,

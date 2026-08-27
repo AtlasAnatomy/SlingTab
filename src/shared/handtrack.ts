@@ -1,5 +1,10 @@
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { GestureBuffer, type GestureResult, type StrokePreview } from "../content/gesture";
+import {
+  GestureBuffer,
+  HAND_WINDOW,
+  type GestureResult,
+  type StrokePreview,
+} from "../content/gesture";
 import { activeBox, mapToViewport, type ActiveBox } from "./handmap";
 import { OneEuroFilter2D } from "./onefilter";
 
@@ -272,7 +277,13 @@ async function withQuietRuntime<T>(
 // ---------------------------------------------------------------------------
 
 export class HandTracker {
-  private buffer = new GestureBuffer();
+  /**
+   * The hand budget, not the mouse one. At 25 Hz the default 1200 ms leaves
+   * thirty frames to cover 1.75 turns, which is why the gesture used to demand
+   * a fast sharp sweep and why the traced arc shortened from its own start
+   * while the circle was still being drawn.
+   */
+  private buffer = new GestureBuffer(HAND_WINDOW);
   private lastFire = -Infinity;
 
   private landmarker: HandLandmarker | null = null;

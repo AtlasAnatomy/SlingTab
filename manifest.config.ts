@@ -12,7 +12,7 @@ import { defineManifest } from "@crxjs/vite-plugin";
 export default defineManifest({
   manifest_version: 3,
   name: "SlingTab",
-  version: "0.1.0",
+  version: "0.2.0",
   description:
     "Cast a sling ring, draw a circle, and step through a portal into any link.",
   minimum_chrome_version: "120",
@@ -25,6 +25,13 @@ export default defineManifest({
     "declarativeNetRequestWithHostAccess",
     "favicon",
     "offscreen",
+    // Content scripts declared here are injected on NAVIGATION, so every tab
+    // already open at install time has none and the extension appears dead
+    // until the user reloads by hand. `scripting` is what lets the worker inject
+    // into those tabs once, on install. It carries no permission warning of its
+    // own — the host access that governs it is already granted above — so it
+    // does not disable the extension for existing users on update.
+    "scripting",
   ],
   host_permissions: ["<all_urls>"],
   icons: {

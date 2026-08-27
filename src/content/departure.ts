@@ -3,7 +3,7 @@ import { MAX_QUICK_LINKS, type Settings } from "../shared/settings";
 import type { DepartResponse, VisionPayload } from "../shared/types";
 import type { GestureResult } from "./gesture";
 import { send } from "./messaging";
-import { createOverlay, type Overlay } from "./overlay";
+import { createOverlay, destroyOtherOverlays, type Overlay } from "./overlay";
 import { SPARK_TUNING, SparkSystem } from "./renderer/sparks";
 import { parseColor, type RenderState } from "./renderer/types";
 import { composeVisionCard } from "./visioncard";
@@ -201,6 +201,10 @@ export class Departure {
     this.targetUrl = opts.linkUrl;
 
     this.overlay = opts.adopt ?? createOverlay();
+    // Adopting skips `createOverlay`, and with it the sweep that guarantees one
+    // overlay at a time. This is the handover from the hand preview, which is
+    // exactly the path that used to strand rings.
+    if (opts.adopt) destroyOtherOverlays(opts.adopt);
     if (!this.overlay) {
       // Could not build the overlay at all: degrade to a plain navigation.
       if (this.targetUrl) location.href = this.targetUrl;
@@ -803,6 +807,12 @@ export class Departure {
 
   private frame = (now: number): void => {
     if (this.finished) return;
+    // Our overlay was swept: something newer owns the screen. Stop rather than
+    // keep an rAF loop and a spark system alive drawing into a dead host.
+    if (this.overlay?.disposed) {
+      this.teardown();
+      return;
+    }
     this.raf = requestAnimationFrame(this.frame);
 
     const dt = Math.min(0.05, (now - this.last) / 1000);

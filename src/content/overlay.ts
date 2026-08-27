@@ -1,3 +1,4 @@
+import { ExclusiveSet } from "./portals";
 import { Canvas2DRenderer } from "./renderer/gl2d";
 import { GLRenderer } from "./renderer/gl";
 import type { SparkSystem } from "./renderer/sparks";
@@ -141,6 +142,36 @@ export interface Overlay {
   render(state: RenderState, sparks: SparkSystem): void;
   resize(): void;
   destroy(): void;
+  /** True once destroyed. Owners poll this to stop drawing into a dead host. */
+  readonly disposed: boolean;
+}
+
+/**
+ * Every overlay currently in the document.
+ *
+ * There must never be two. The page gets ONE ring at a time, and every attempt
+ * to guarantee that from the objects that own overlays has leaked, because an
+ * overlay can outlive every reference to it: `HandPreview.release()` cancels its
+ * rAF and hands the overlay out, so a caller that drops it leaves a host in the
+ * DOM that no object points at, that nothing redraws — and a canvas keeps its
+ * last frame, so what stays on screen is a fully lit ring, frozen, unreachable
+ * and unclosable. No registry of PORTALS can find that; only a registry of
+ * overlays can.
+ *
+ * So exclusivity is enforced here, at the only place an overlay can come into
+ * existence, rather than being maintained by the code that happens to hold one.
+ */
+const liveOverlays = new ExclusiveSet<Overlay>();
+
+/**
+ * Destroy every overlay except `keep`.
+ *
+ * Called on creation, and by `Departure` when it adopts an overlay instead of
+ * creating one — the handover from the hand preview is the one path that puts a
+ * new portal on screen without going through `createOverlay`.
+ */
+export function destroyOtherOverlays(keep: Overlay | null): void {
+  liveOverlays.keepOnly(keep);
 }
 
 class OverlayImpl implements Overlay {
@@ -301,9 +332,14 @@ class OverlayImpl implements Overlay {
     );
   }
 
+  get disposed(): boolean {
+    return this.destroyed;
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    liveOverlays.remove(this);
     try {
       this.canvas?.removeEventListener("webglcontextlost", this.onLost);
       this.renderer?.dispose();
@@ -320,7 +356,12 @@ class OverlayImpl implements Overlay {
 
 export function createOverlay(withCanvas = true): Overlay | null {
   try {
-    return new OverlayImpl(withCanvas);
+    const overlay = new OverlayImpl(withCanvas);
+    // `add` sweeps: whatever was on the page a moment ago is not ours any more.
+    // Doing it here makes "one ring at a time" true by construction instead of
+    // by every caller remembering to tidy up after itself.
+    liveOverlays.add(overlay);
+    return overlay;
   } catch (err) {
     // Returning null here degrades the portal to a plain navigation, so this is
     // exactly the failure that must never be silent.

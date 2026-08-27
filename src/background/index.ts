@@ -352,5 +352,55 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // browser session), so a worker killed mid-portal can leak one. Sweep on every
 // worker start, not just on install.
 chrome.runtime.onStartup.addListener(() => void sweepAllRules());
-chrome.runtime.onInstalled.addListener(() => void sweepAllRules());
 void sweepAllRules();
+
+/**
+ * Give the tabs that were already open a content script.
+ *
+ * A content script declared in the manifest is injected when a document is
+ * NAVIGATED, so at the moment of install every tab already open has none. The
+ * extension looks broken on exactly the pages the user was reading when they
+ * installed it, and the only cure is a manual reload — which is a poor first
+ * impression of a thing whose whole pitch is that you never have to click.
+ *
+ * The files come from the manifest rather than being named here: @crxjs emits
+ * the content script under a content-hashed filename that changes on every
+ * build, so a hardcoded path would rot silently at the next release.
+ *
+ * INSTALL ONLY, deliberately. On an UPDATE the tabs still hold the previous
+ * version's script: its chrome.* APIs are dead but its window listeners are
+ * not, and adding a live script beside it would give the page two gesture
+ * recognisers. The orphan is instead made inert on its own side — see the
+ * `chrome.runtime.id` guard in content/index.ts.
+ */
+async function injectIntoOpenTabs(): Promise<void> {
+  const files = (chrome.runtime.getManifest().content_scripts ?? []).flatMap(
+    (s) => s.js ?? [],
+  );
+  if (!files.length) return;
+
+  let tabs: chrome.tabs.Tab[];
+  try {
+    // The url filter needs `tabs` OR host permissions; we hold the latter.
+    tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (tab.id === undefined) return;
+      try {
+        // No `allFrames`, matching the manifest's `all_frames: false`.
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files });
+      } catch {
+        /* the Web Store, a PDF, a chrome:// page, a tab mid-navigation */
+      }
+    }),
+  );
+}
+
+chrome.runtime.onInstalled.addListener((details) => {
+  void sweepAllRules();
+  if (details.reason === "install") void injectIntoOpenTabs();
+});

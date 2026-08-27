@@ -95,7 +95,7 @@ export class HandPreview {
   }
 
   get alive(): boolean {
-    return this.overlay !== null && !this.released;
+    return this.overlay !== null && !this.released && !this.overlay.disposed;
   }
 
   private onResize = (): void => this.overlay?.resize();
@@ -177,6 +177,14 @@ export class HandPreview {
 
   private frame = (now: number): void => {
     if (!this.overlay || this.released) return;
+    // The overlay was swept out from under us: a newer portal or preview owns
+    // the screen now. Without this the loop would run for the life of the
+    // document, rendering into a dead host, and `alive` would stay true so no
+    // replacement preview could ever be built.
+    if (this.overlay.disposed) {
+      this.release();
+      return;
+    }
     this.raf = requestAnimationFrame(this.frame);
 
     const dt = Math.min(0.05, (now - this.last) / 1000);

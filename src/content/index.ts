@@ -2,6 +2,7 @@ import { Departure, type QuickTarget } from "./departure";
 import { GestureBuffer, type GestureResult } from "./gesture";
 import { HandPreview } from "./handpreview";
 import { send } from "./messaging";
+import { PortalRegistry, screenIsDirty } from "./portals";
 import { edgeClamp } from "../shared/handmap";
 import {
   DEFAULT_SETTINGS,
@@ -40,6 +41,13 @@ function isTopLevelWebPage(): boolean {
 let settings: Settings = { ...DEFAULT_SETTINGS };
 const buffer = new GestureBuffer();
 let active: Departure | null = null;
+
+/**
+ * Every portal that has not finished yet. See portals.ts for why this is not
+ * simply `active`: a single reference cannot survive a race, and two separate
+ * ones stranded portals on screen that no gesture, click or key could close.
+ */
+const live = new PortalRegistry();
 
 /** Per-press flag: only swallow contextmenu if this press produced a portal. */
 let gestureFired = false;
@@ -136,6 +144,28 @@ function resetGesture(): void {
   capturing = false;
 }
 
+/**
+ * False once this script has been orphaned by an extension reload or update.
+ *
+ * Chrome does not stop an old content script when the extension behind it goes
+ * away. It invalidates its `chrome.*` APIs and leaves everything else running —
+ * so the window listeners installed below keep firing, the recogniser keeps
+ * recognising, and `fire()` keeps building portals that can no longer reach the
+ * worker for a preview, a capture or a header rule.
+ *
+ * That was survivable while it was the only script on the page. It stops being
+ * survivable now that the worker injects a live script into open tabs on
+ * install: the two would draw a ring each. Reading `chrome.runtime.id` is the
+ * cheapest way to ask, and on an invalidated context it is undefined.
+ */
+function extensionAlive(): boolean {
+  try {
+    return Boolean(chrome.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
 /* -------------------------------------------------------------------------- *
  *  Hand trigger: live feedback
  * -------------------------------------------------------------------------- */
@@ -143,6 +173,29 @@ function resetGesture(): void {
 let handPreview: HandPreview | null = null;
 let pendingCapture: Promise<string | null> | null = null;
 let lastCaptureAt = 0;
+
+/**
+ * A gesture that has been recognised but whose portal does not exist yet.
+ *
+ * `fire()` is async, and between releasing the preview overlay and assigning
+ * `active` it awaits the quick-link icons — a message to the worker with a two
+ * second timeout. For that whole window `active` and `handPreview` are BOTH
+ * null, which is a lie: a portal is on its way.
+ *
+ * Everything that reads `active` to mean "nothing of ours is on screen" was
+ * therefore free to act during it. A second gesture ran `replaceActive()`
+ * against a null `active`, found nothing to close, and built its own portal —
+ * leaving the first one orphaned with nobody holding it, its identity-checked
+ * `onFinished` unable to ever match, and its rAF loop and overlay running until
+ * T_HOLD_MAX five minutes later. That is the two-ring screenshot: one portal
+ * with quick-link chips, one without, neither able to close the other.
+ *
+ * `firing` closes the window for anything that would draw. `fireSeq` settles
+ * the race when it happens anyway: the newest gesture wins and older ones
+ * abandon what they were building.
+ */
+let fireSeq = 0;
+let firing = false;
 
 /* -------------------------------------------------------------------------- *
  *  Hand trigger: telling the tracker how big this tab is
@@ -180,6 +233,8 @@ function reportViewport(force = false): void {
 
 /** Resize fires continuously through a window drag; one report per settle. */
 function scheduleViewportReport(): void {
+  // A snapshot of the old viewport is the wrong shape for the new one.
+  cleanCapture = null;
   if (viewportTimer !== null) clearTimeout(viewportTimer);
   viewportTimer = setTimeout(reportViewport, 250);
 }
@@ -205,73 +260,172 @@ function requestCapture(): Promise<string | null> {
   );
 }
 
+/**
+ * The last snapshot taken with nothing of ours on screen.
+ *
+ * `captureVisibleTab` photographs the COMPOSITED tab, and our overlay is part
+ * of the page — so a snapshot taken while a ring is visible contains that ring.
+ * The lens then draws that photograph inside the next portal, and the ring is
+ * back: not as an overlay this time, but as pixels in a texture. Nothing owns
+ * it, nothing redraws it, no teardown can remove it. Do it again and the next
+ * photograph contains both, then three, then four.
+ *
+ * That is what was still filling the screen after the overlays themselves had
+ * started being destroyed correctly — the rings were coming back inside the
+ * picture of the page.
+ */
+let cleanCapture: Promise<string | null> | null = null;
+/** When the last overlay stopped being on screen. */
+let overlayGoneAt = 0;
+
+/**
+ * Is anything of ours painted right now?
+ *
+ * The grace period matters as much as the count. Removing an overlay does not
+ * repaint the tab — the compositor gets to that on its own schedule — so a
+ * capture requested immediately after a teardown still photographs the ring
+ * that was just removed.
+ */
+function overlayVisible(): boolean {
+  return screenIsDirty({
+    overlays: live.size,
+    preview: handPreview !== null,
+    sinceGoneMs: performance.now() - overlayGoneAt,
+  });
+}
+
+/**
+ * A snapshot with nothing of ours in it, or the last one that was.
+ *
+ * Reusing is not a compromise: scrolling is locked while a portal is open, so
+ * the previous clean snapshot is still a true picture of what lies underneath.
+ * And no lens at all beats a lens full of our own rings.
+ */
+function pageCapture(): Promise<string | null> {
+  if (overlayVisible()) return cleanCapture ?? Promise.resolve(null);
+  cleanCapture = requestCapture();
+  return cleanCapture;
+}
+
 function onHandArmed(armed: boolean): void {
-  if (active) return;
+  // `firing` as well as `active`: a portal under construction is still a portal.
+  if (active || firing) return;
   if (!armed) {
     handPreview?.destroy();
     handPreview = null;
     return;
   }
-  // Snapshot now, while nothing of ours is on screen yet — a capture taken
-  // after the preview ring exists would bake that ring into the lens texture.
+  // Snapshot now, while nothing of ours is on screen yet. `pageCapture` is what
+  // enforces that: re-arming with a preview still up reuses the clean one
+  // rather than photographing its embers.
   if (!pendingCapture || performance.now() - lastCaptureAt > 2500) {
-    pendingCapture = requestCapture();
+    pendingCapture = pageCapture();
   }
   if (!handPreview?.alive) handPreview = new HandPreview();
 }
 
 async function fire(gesture: GestureResult, wideSearch = false): Promise<void> {
-  // Callers replace an existing portal before firing; this only catches a race.
+  const resolveLink = (): string | null =>
+    wideSearch
+      ? linkNear(gesture.centerX, gesture.centerY, gesture.radius)
+      : linkAt(gesture.centerX, gesture.centerY);
+
+  // Orphaned by a reload or an update: everything a portal needs is gone, so
+  // do the one thing that still works and get out of the way.
+  if (!extensionAlive()) {
+    const dead = resolveLink();
+    if (dead) location.href = dead;
+    return;
+  }
+
+  const seq = ++fireSeq;
+  firing = true;
+
+  /*
+   * The capture is decided BEFORE anything is torn down, and that ordering is
+   * the whole fix.
+   *
+   * `pageCapture` refuses to photograph the tab while one of our overlays is on
+   * it. Asking after `replaceActive()` would defeat that twice over: `live` is
+   * already empty so it would look clean, and the compositor has not repainted
+   * anyway, so the photograph would still contain the ring we just removed.
+   * That ring then becomes the lens texture of the portal being built — which
+   * is how rings kept coming back as frozen pixels after the overlays
+   * themselves were being destroyed correctly.
+   */
+  const capture = pendingCapture ?? pageCapture();
+  pendingCapture = null;
+
   replaceActive();
   gestureFired = true;
   gestureFiredAt = performance.now();
   resetGesture();
 
-  // FIRST, before any overlay is built: the lens needs a picture of the page
-  // without our own ring already burned into it. In hand mode the snapshot was
-  // already taken when the pose armed, for the same reason.
-  const capture = pendingCapture ?? requestCapture();
-  pendingCapture = null;
-
   // The preview ring is mid-flight; adopt its overlay rather than rebuild.
   const adopt = handPreview?.release() ?? null;
   handPreview = null;
 
-  const link = wideSearch
-    ? linkNear(gesture.centerX, gesture.centerY, gesture.radius)
-    : linkAt(gesture.centerX, gesture.centerY);
+  try {
+    const link = resolveLink();
 
-  // §7.13: reduced motion means no animation at all, just go.
-  if (prefersReducedMotion()) {
-    if (link) location.href = link;
-    return;
+    // §7.13: reduced motion means no animation at all, just go.
+    if (prefersReducedMotion()) {
+      // The adopted overlay is ours now. Returning without it would leave the
+      // hand preview's ring on the page with nothing left to take it down.
+      adopt?.destroy();
+      if (link) location.href = link;
+      return;
+    }
+
+    const targets = link ? [] : await quickTargets();
+    // §6 step 3: nothing to navigate to and nothing to offer — let it dissipate.
+
+    // A newer gesture started while the icons were in flight. It has already
+    // run `replaceActive()` against an `active` we had not assigned yet, so
+    // building this portal now would strand one of the two on screen for good.
+    // The newest gesture is the one the user meant; this one steps aside.
+    if (seq !== fireSeq) {
+      adopt?.destroy();
+      return;
+    }
+
+    const departure: Departure = new Departure({
+      gesture,
+      settings,
+      linkUrl: link,
+      quickTargets: targets,
+      capture,
+      adopt,
+      // Identity-checked: a portal being replaced finishes its dissipate AFTER
+      // its successor is already live, and an unguarded `active = null` would
+      // then blank out the new one.
+      onFinished: () => {
+        live.remove(departure);
+        if (active === departure) active = null;
+      },
+    });
+    // Registered before `active`, and unconditionally: a portal that exists
+    // must be reachable even if the assignment below decides it is not the
+    // active one.
+    if (!departure.isFinished) live.add(departure);
+    // The constructor can bail out synchronously (no overlay -> plain
+    // navigation), in which case onFinished already fired before we could
+    // assign. Assigning unconditionally would strand `active` and block every
+    // later gesture.
+    active = departure.isFinished ? null : departure;
+  } finally {
+    // Only the newest gesture may reopen the window. An older one clearing it
+    // here would let a preview ring appear underneath the portal that
+    // superseded it — the same two-ring bug, one level down.
+    if (seq === fireSeq) firing = false;
   }
-
-  const targets = link ? [] : await quickTargets();
-  // §6 step 3: nothing to navigate to and nothing to offer — let it dissipate.
-
-  const departure: Departure = new Departure({
-    gesture,
-    settings,
-    linkUrl: link,
-    quickTargets: targets,
-    capture,
-    adopt,
-    // Identity-checked: a portal being replaced finishes its dissipate AFTER
-    // its successor is already live, and an unguarded `active = null` would
-    // then blank out the new one.
-    onFinished: () => {
-      if (active === departure) active = null;
-    },
-  });
-  // The constructor can bail out synchronously (no overlay -> plain navigation),
-  // in which case onFinished already fired before we could assign. Assigning
-  // unconditionally would strand `active` and block every later gesture.
-  active = departure.isFinished ? null : departure;
 }
 
 function sample(e: PointerEvent): void {
-  if (active) return;
+  // `firing` too: `fire()` clears the buffer on entry, so without this a fast
+  // pointer can refill it and fire a SECOND gesture during the await inside the
+  // first — which is exactly the race that stranded a portal on screen.
+  if (active || firing) return;
   const g = buffer.feed(
     { x: e.clientX, y: e.clientY, t: e.timeStamp || performance.now() },
     viewport(),
@@ -292,9 +446,9 @@ function sample(e: PointerEvent): void {
  * gesture's samples.
  */
 function replaceActive(): void {
-  if (!active) return;
-  active.dismiss();
   active = null;
+  if (live.size) overlayGoneAt = performance.now();
+  live.closeAll();
 }
 
 function onPointerDown(e: PointerEvent): void {
@@ -449,7 +603,11 @@ function installPush(): void {
       }
 
       if (msg?.type === "HAND_PREVIEW") {
-        if (active || !settings.enabled) return false;
+        // The tracker keeps streaming at 22 Hz through the whole of `fire()`.
+        // Without `firing`, one of those frames lands in the window where
+        // `active` is not assigned yet and builds a preview overlay alongside
+        // the portal being constructed.
+        if (active || firing || !settings.enabled) return false;
         if (!handPreview?.alive) handPreview = new HandPreview();
         handPreview.update({
           pointerXFrac: msg.pointerXFrac ?? 0.5,
@@ -466,7 +624,11 @@ function installPush(): void {
 
       if (msg?.type === "HAND_GESTURE") {
         if (!settings.enabled) return false;
-        replaceActive();
+        // No `replaceActive()` here: `fire()` does it, and doing it first would
+        // empty `live` before `fire` can see that a portal is on screen — which
+        // is exactly what it needs to know to refuse a dirty capture. Not gated
+        // on `firing` either: dropping the gesture would leave the previous
+        // portal open and open nothing new, which reads as being ignored.
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         // The tracker measured this against the viewport we reported, so the
