@@ -10,6 +10,8 @@
 
 **Trace a circle around any link with your mouse, or draw it in the air with hand tracking. A portal opens exactly where you traced it. Sling ring not included.**
 
+[<img src="assets/available-chrome-web-store.png" alt="Available in the Chrome Web Store" width="248">][store-url]
+
 [![Tests][tests-shield]][tests-url]
 [![TypeScript][ts-shield]][ts-url]
 [![Manifest V3][mv3-shield]][mv3-url]
@@ -18,6 +20,7 @@
 [![License: MIT][license-shield]][license-url]
 [![Stars][stars-shield]][stars-url]
 
+[Install][store-url] ·
 [Getting Started](#getting-started) ·
 [How It Works](#under-the-hood) ·
 [Privacy](#privacy--security) ·
@@ -60,14 +63,22 @@ Draw a circle around a link with your mouse, or make the gesture in the air usin
 
 ## Getting Started
 
-### Prerequisites
+### Install it
 
-- **Node.js**, current LTS, and the npm that ships with it
-- **Chrome 120 or newer** (`minimum_chrome_version` in the manifest)
+<div align="center">
 
-A webcam is optional, you need one only for the hand trigger.
+[<img src="assets/available-chrome-web-store.png" alt="Available in the Chrome Web Store" width="248">][store-url]
 
-### Installation
+</div>
+
+One click, and Chrome keeps it up to date. Needs **Chrome 120 or newer**. A
+webcam is optional, you need one only for the hand trigger.
+
+Open any page and draw.
+
+### Or build it from source
+
+You need **Node.js**, current LTS, and the npm that ships with it.
 
 ```sh
 git clone https://github.com/AtlasAnatomy/SlingTab.git
@@ -85,14 +96,12 @@ npm test               # optional - 221 unit tests
 > WASM runtime and hand model, both vendored so the repository builds with no
 > download step. First-party code is a rounding error next to it.
 
-### Load it in Chrome
+Then load your build:
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode** (top right)
 3. Click **Load unpacked**
 4. Select the `dist/` folder
-
-That is it. Open any page and draw.
 
 <p align="right"><a href="#readme-top">back to top &uarr;</a></p>
 
@@ -391,6 +400,7 @@ Distributed under the **MIT License**. See [`LICENSE`][license-url] for the full
 [options-png]: assets/UI_Tuner.png
 
 <!-- LINKS -->
+[store-url]: https://chromewebstore.google.com/detail/fmpchiehglmodnbjjddeheboaphhgcfp
 [issues-url]: https://github.com/AtlasAnatomy/SlingTab/issues
 [privacy-url]: https://github.com/AtlasAnatomy/SlingTab/blob/main/docs/index.md
 [mediapipe-url]: https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker
