@@ -72,9 +72,7 @@ Draw a circle around a link with your mouse, or make the gesture in the air usin
 </div>
 
 One click, and Chrome keeps it up to date. Needs **Chrome 120 or newer**. A
-webcam is optional, you need one only for the hand trigger.
-
-Open any page and draw.
+webcam is optional, you need one only for the hand trigger. Then, open any page and draw.
 
 ### Or build it from source
 
